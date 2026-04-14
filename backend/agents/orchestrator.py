@@ -34,10 +34,19 @@ class OrchestratorAgent:
             }
             seniority_context = f"\nSENIORITY CONTEXT:\n{seniority_guidance.get(seniority_level, '')}\n"
 
-        prompt = f"""You are a resume tailoring orchestrator. Analyze the job description and the resume below.
-Decide which resume sections need modification and which should stay unchanged.
+        # Determine section order example based on seniority
+        if seniority_level in ("graduate", "junior"):
+            order_example = '["Summary", "Education", "Skills", "Experience", "Projects", "Volunteering and Interests"]'
+            order_rule = "For graduate/junior roles: Education MUST come BEFORE Experience and Skills."
+        else:
+            order_example = '["Summary", "Experience", "Skills", "Education", "Projects", "Volunteering and Interests"]'
+            order_rule = "For mid-level+ roles: Experience comes first, then Skills, then Education."
 
-For each section that needs changes, specify what agent should handle it and what instructions to give.
+        prompt = f"""You are a resume tailoring orchestrator. Analyze the job description and the resume below.
+
+STEP 1: Extract the job title, company name, and position level from the JD.
+STEP 2: Decide which resume sections need modification and which should stay unchanged.
+STEP 3: For each section that needs changes, specify what agent should handle it and what instructions to give.
 
 IMPORTANT RULES:
 - Frontmatter (between --- markers at the top) is NEVER modified
@@ -45,10 +54,7 @@ IMPORTANT RULES:
 - Only modify sections where the job description demands different emphasis
 - For Experience, decide PER ENTRY whether to modify or keep
 - Preserve the user's truthful experience -- only change wording and emphasis, never fabricate
-- SECTION ORDER: Decide the best order for sections based on seniority and role type.
-  For graduate/junior: Summary, Education, Skills, Experience, Projects, Volunteering
-  For mid-level+: Summary, Experience, Skills, Education, Projects, Volunteering
-  Adjust as appropriate for the specific role.
+- SECTION ORDER: {order_rule}
 
 AVAILABLE AGENTS AND ACTIONS:
 - agent: "summary", action: "rewrite" -- rewrite the summary to match job requirements
@@ -62,20 +68,23 @@ RESUME:
 JOB DESCRIPTION:
 {job_description}
 
-CRITICAL: Keep your response CONCISE. Instructions must be 1-2 short sentences max. Key requirements and matched strengths should be short phrases, not full sentences. The entire JSON response MUST fit within 4000 tokens.
+CRITICAL: Keep your response CONCISE. Instructions must be 1-2 short sentences max. Key requirements and matched strengths should be short phrases, not full sentences.
 
-Respond with a JSON object with this exact structure:
+Respond with a JSON object:
 {{
   "analysis": {{
-    "role_type": "<category like ai_ml, backend, data_eng, frontend, devops, leadership>",
-    "key_requirements": ["<short phrase>", "<short phrase>"],
-    "matched_strengths": ["<short phrase>", "<short phrase>"]
+    "job_title": "<exact role title from JD, e.g. Graduate Data Engineer>",
+    "company": "<company name from JD, e.g. Capgemini>",
+    "position_level": "<graduate|junior|mid-level|senior|lead|principal>",
+    "role_type": "<ai_ml|backend|data_eng|frontend|devops|leadership|fullstack>",
+    "key_requirements": ["<short phrase>"],
+    "matched_strengths": ["<short phrase>"]
   }},
   "tool_calls": [
-    {{"agent": "<agent_name>", "action": "<rewrite|reorder|keep>", "entry": "<for experience only>", "instructions": "<1-2 sentences max>", "promote": ["<for reorder>"], "demote": ["<for reorder>"]}}
+    {{"agent": "<name>", "action": "<rewrite|reorder|keep>", "entry": "<for experience>", "instructions": "<1-2 sentences>", "promote": ["<items>"], "demote": ["<items>"]}}
   ],
-  "sections_unchanged": ["<section names to keep verbatim>"],
-  "section_order": ["Summary", "Experience", "Skills", "Education", "Projects", "Volunteering and Interests"]
+  "sections_unchanged": ["<section names>"],
+  "section_order": {order_example}
 }}"""
 
         return await self.gemini.generate_json(prompt)

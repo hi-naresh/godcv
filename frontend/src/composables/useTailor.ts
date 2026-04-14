@@ -98,12 +98,28 @@ export function useTailor() {
     switch (event) {
       case 'plan': {
         const plan = data.tool_calls as any[]
+        const analysis = data.analysis as Record<string, unknown> | undefined
         const statuses: Record<string, 'pending' | 'running' | 'done'> = {}
         for (const call of plan || []) {
           const key = call.entry ? `${call.agent}:${call.entry}` : call.agent
           statuses[key] = call.action === 'keep' ? 'done' : 'pending'
         }
-        store.updateJob(jobId, { tailoringPlan: plan, agentStatuses: statuses })
+        const updates: Partial<typeof job> = { tailoringPlan: plan, agentStatuses: statuses }
+        // Use AI-extracted job info if available and user hasn't manually set them
+        if (analysis) {
+          const aiTitle = analysis.job_title as string
+          const aiCompany = analysis.company as string
+          const aiPosition = analysis.position_level as string
+          if (aiTitle && aiCompany && !job.title) {
+            updates.title = `${aiTitle} @ ${aiCompany}`
+          } else if (aiTitle && !job.title) {
+            updates.title = aiTitle
+          }
+          if (aiPosition && !job.seniorityLevel) {
+            updates.seniorityLevel = aiPosition as any
+          }
+        }
+        store.updateJob(jobId, updates)
         break
       }
       case 'agent_start': {
