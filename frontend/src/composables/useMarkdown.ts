@@ -2,6 +2,11 @@ import { marked } from 'marked'
 
 marked.setOptions({ gfm: true, breaks: false })
 
+export interface ResumeSettings {
+  fontSize: number
+  lineSpacing: number
+}
+
 export function useMarkdown() {
   function parseFrontmatter(md: string): { data: Record<string, string>; body: string } {
     const match = md.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)/)
@@ -45,5 +50,13 @@ export function useMarkdown() {
     return `${header}<div class="md">${bodyHtml}</div>`
   }
 
-  return { renderResume, parseFrontmatter }
+  function getResumeSettings(md: string): ResumeSettings {
+    const { data } = parseFrontmatter(md)
+    return {
+      fontSize: parseFloat(data.font_size) || 11,
+      lineSpacing: parseFloat(data.line_spacing) || 1.4,
+    }
+  }
+
+  return { renderResume, parseFrontmatter, getResumeSettings }
 }
