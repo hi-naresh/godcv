@@ -81,15 +81,56 @@ class GeminiClient:
         try:
             return json.loads(text)
         except json.JSONDecodeError as e:
-            logger.error("Failed to parse Gemini JSON response: %s\nRaw text: %s", e, text[:500])
-            # Try to extract JSON from markdown fences or partial response
-            json_match = re.search(r'\{[\s\S]*\}', text)
-            if json_match:
-                try:
-                    return json.loads(json_match.group())
-                except json.JSONDecodeError:
-                    pass
-            raise RuntimeError(f"Gemini returned invalid JSON. This sometimes happens — please retry.")
+            logger.warning("Initial JSON parse failed: %s — attempting repair", e)
+            repaired = self._repair_json(text)
+            try:
+                return json.loads(repaired)
+            except json.JSONDecodeError:
+                logger.error("JSON repair also failed.\nRaw text:\n%s", text[:2000])
+                raise RuntimeError("Gemini returned invalid JSON. This sometimes happens — please retry.")
+
+    def _repair_json(self, text: str) -> str:
+        """Attempt to fix common JSON issues from LLM output."""
+        s = text.strip()
+        # Remove markdown fences
+        s = re.sub(r'^```(?:json)?\s*\n?', '', s)
+        s = re.sub(r'\n?```\s*$', '', s)
+        # Remove trailing commas before } or ]
+        s = re.sub(r',\s*([}\]])', r'\1', s)
+        # Remove control characters (except newline/tab which are valid in strings)
+        s = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', s)
+        # Fix unescaped newlines inside string values — replace with \n
+        # This handles the case where Gemini puts literal newlines in JSON string values
+        lines = s.split('\n')
+        fixed_lines = []
+        in_string = False
+        for line in lines:
+            # Count unescaped quotes to track string state
+            quote_count = 0
+            i = 0
+            while i < len(line):
+                if line[i] == '\\':
+                    i += 2
+                    continue
+                if line[i] == '"':
+                    quote_count += 1
+                i += 1
+            if in_string:
+                # We're continuing a string from previous line — escape this line into it
+                fixed_lines[-1] = fixed_lines[-1] + '\\n' + line
+            else:
+                fixed_lines.append(line)
+            # Odd number of quotes means we're now inside/outside a string
+            if quote_count % 2 == 1:
+                in_string = not in_string
+        s = '\n'.join(fixed_lines)
+        # Truncate at last valid closing brace if there's garbage after
+        last_brace = s.rfind('}')
+        if last_brace != -1 and last_brace < len(s) - 1:
+            tail = s[last_brace + 1:].strip()
+            if tail and not tail.startswith(']'):
+                s = s[:last_brace + 1]
+        return s
 
     def _clean_response(self, text: str) -> str:
         """Remove markdown code fences if present."""
