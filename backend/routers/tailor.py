@@ -55,7 +55,7 @@ async def tailor_resume(request: TailorRequest):
             if profile_id:
                 insights = await profile_service.get_role_insights(profile_id)
 
-            plan = await orchestrator.analyze(resume_md, job_description, insights)
+            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level)
             tool_calls = plan.get("tool_calls", [])
             sections_unchanged = plan.get("sections_unchanged", [])
 

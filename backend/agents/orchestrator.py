@@ -10,6 +10,7 @@ class OrchestratorAgent:
         resume_markdown: str,
         job_description: str,
         role_insights: list[dict] | None = None,
+        seniority_level: str | None = None,
     ) -> dict:
         """Analyze job description against resume and produce a tool_calls plan."""
         insights_context = ""
@@ -20,6 +21,18 @@ class OrchestratorAgent:
                     f"- Role type '{insight['role_type']}' (tailored {insight['tailoring_count']}x): "
                     f"strongest points: {', '.join(insight.get('strongest_points', [])[:5])}\n"
                 )
+
+        seniority_context = ""
+        if seniority_level:
+            seniority_guidance = {
+                "graduate": "Target is a GRADUATE/ENTRY-LEVEL role. Emphasize coursework, projects, internships, and eagerness to learn. Tone down leadership language.",
+                "junior": "Target is a JUNIOR role. Emphasize hands-on technical work, learning ability, and projects. Keep language confident but not senior.",
+                "mid-level": "Target is a MID-LEVEL role. Balance technical depth with some ownership. Show progression and impact.",
+                "senior": "Target is a SENIOR role. Emphasize leadership, architecture decisions, mentoring, and measurable business impact.",
+                "lead": "Target is a LEAD/MANAGEMENT role. Emphasize team leadership, cross-functional work, technical strategy, and people management.",
+                "principal": "Target is a PRINCIPAL/STAFF role. Emphasize org-wide impact, technical vision, and strategic thinking.",
+            }
+            seniority_context = f"\nSENIORITY CONTEXT:\n{seniority_guidance.get(seniority_level, '')}\n"
 
         prompt = f"""You are a resume tailoring orchestrator. Analyze the job description and the resume below.
 Decide which resume sections need modification and which should stay unchanged.
@@ -38,7 +51,7 @@ AVAILABLE AGENTS AND ACTIONS:
 - agent: "skills", action: "reorder" -- reorder and emphasize relevant skills (with promote/demote lists)
 - agent: "experience", entry: "<CompanyKey>", action: "rewrite"|"keep" -- per job entry
 - agent: "projects", action: "reorder" -- reorder projects by relevance to job
-{insights_context}
+{insights_context}{seniority_context}
 RESUME:
 {resume_markdown}
 
