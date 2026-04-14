@@ -51,6 +51,9 @@ function onJdInput(value: string) {
       <span v-else-if="job.tailoringStatus === 'running'" class="status-badge running">Running...</span>
       <span v-else-if="job.tailoringStatus === 'error'" class="status-badge error">Error</span>
     </div>
+    <div v-if="job.tailoringStatus === 'error' && job.error" class="error-message">
+      {{ job.error }}
+    </div>
     <textarea
       class="jd-textarea"
       :value="job.jobDescription"
@@ -97,4 +100,9 @@ function onJdInput(value: string) {
   border: 1px dashed #c9c9c9; border-radius: 8px; font-size: 0.8rem;
 }
 .jd-textarea:focus { outline: none; border-color: #667eea; }
+.error-message {
+  background: #fff0f0; border: 1px solid #fcc; border-radius: 6px;
+  padding: 6px 8px; font-size: 0.78rem; color: #c00; line-height: 1.3;
+  word-break: break-word;
+}
 </style>

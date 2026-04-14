@@ -62,6 +62,7 @@ class AgentBus:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for r in results:
                 if isinstance(r, Exception):
+                    self.log.error("Agent failed: %s", r)
                     continue
                 agent_name, content = r
                 section_key = _find_section_key(sections, agent_name)
@@ -101,6 +102,7 @@ class AgentBus:
             results = await asyncio.gather(*exp_tasks, return_exceptions=True)
             for r in results:
                 if isinstance(r, Exception):
+                    self.log.error("Experience agent failed: %s", r)
                     continue
                 name, content = r
                 entry_key = name.split(":", 1)[1] if ":" in name else name

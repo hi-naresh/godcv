@@ -20,8 +20,26 @@ export function useTailor() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).then(async (response) => {
+      // Handle HTTP errors (400, 422, 500, etc.)
+      if (!response.ok) {
+        let message = `Server error (${response.status})`
+        try {
+          const errorData = await response.json()
+          message = errorData.detail || errorData.message || message
+        } catch {
+          // Response wasn't JSON, use status text
+          message = `${response.status}: ${response.statusText || 'Unknown error'}`
+        }
+        store.updateJob(jobId, { tailoringStatus: 'error', error: message })
+        return
+      }
+
       const reader = response.body?.getReader()
-      if (!reader) return
+      if (!reader) {
+        store.updateJob(jobId, { tailoringStatus: 'error', error: 'No response stream available' })
+        return
+      }
+
       const decoder = new TextDecoder()
       let buffer = ''
 
@@ -41,13 +59,27 @@ export function useTailor() {
             try {
               const data = JSON.parse(line.slice(6))
               handleEvent(jobId, eventType, data)
-            } catch {}
+            } catch (e) {
+              console.warn(`[GodCV] Failed to parse SSE data for event "${eventType}":`, line.slice(6))
+            }
             eventType = ''
           }
         }
       }
+
+      // If stream ended without a 'complete' or 'error' event, check status
+      const finalJob = store.jobs.get(jobId)
+      if (finalJob && finalJob.tailoringStatus === 'running') {
+        store.updateJob(jobId, {
+          tailoringStatus: 'error',
+          error: 'Connection closed before tailoring completed',
+        })
+      }
     }).catch((err) => {
-      store.updateJob(jobId, { tailoringStatus: 'error', error: err.message })
+      const message = err instanceof TypeError
+        ? 'Cannot connect to server. Is the backend running?'
+        : (err.message || 'Unknown network error')
+      store.updateJob(jobId, { tailoringStatus: 'error', error: message })
     })
   }
 
@@ -93,7 +125,7 @@ export function useTailor() {
       case 'error':
         store.updateJob(jobId, {
           tailoringStatus: 'error',
-          error: data.message as string,
+          error: data.message as string || 'Unknown error from server',
         })
         break
     }

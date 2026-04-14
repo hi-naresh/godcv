@@ -155,6 +155,11 @@ function exportPdf() { window.print() }
         <button class="export-btn" @click="exportPdf">Print / PDF</button>
       </div>
 
+      <!-- Error banner for active job -->
+      <div v-if="activeJob && activeJob.tailoringStatus === 'error'" class="error-banner">
+        <strong>Tailoring failed:</strong> {{ activeJob.error || 'Unknown error' }}
+      </div>
+
       <div v-if="!store.markdown" class="empty-preview">
         <div class="empty-preview-content">
           <div class="empty-preview-icon">&#128196;</div>
@@ -238,6 +243,13 @@ function exportPdf() { window.print() }
   font-size: 0.8rem; cursor: pointer;
 }
 .export-btn:hover { background: #eee; }
+
+.error-banner {
+  background: #fff0f0; border: 1px solid #fcc; border-radius: 10px;
+  padding: 10px 14px; font-size: 0.82rem; color: #c00; line-height: 1.4;
+  word-break: break-word;
+}
+.error-banner strong { font-weight: 700; }
 
 .empty-preview {
   width: var(--page-w); min-height: 300px;
