@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useEditorStore } from '../stores/editor'
+import type { JobState } from '../stores/editor'
 
-const store = useEditorStore()
+const props = defineProps<{ job: JobState }>()
 
 const agents = computed(() => {
-  const entries = Object.entries(store.agentStatuses)
+  const entries = Object.entries(props.job.agentStatuses)
   return entries.map(([key, status]) => ({
     key,
     label: key.includes(':') ? key.split(':')[1] : key,
@@ -13,21 +13,12 @@ const agents = computed(() => {
     status,
   }))
 })
-
-const statusLabel = computed(() => {
-  switch (store.tailoringStatus) {
-    case 'running': return 'Tailoring in progress...'
-    case 'done': return 'Tailoring complete!'
-    case 'error': return 'Error: ' + (store.error || 'Unknown')
-    default: return ''
-  }
-})
 </script>
 
 <template>
-  <div v-if="store.tailoringStatus !== 'idle'" class="progress-panel">
+  <div class="progress-panel">
     <div class="progress-header">
-      <span class="progress-status" :class="store.tailoringStatus">{{ statusLabel }}</span>
+      <span class="progress-status running">Tailoring in progress...</span>
     </div>
     <div class="agent-list">
       <div v-for="agent in agents" :key="agent.key" class="agent-item" :class="agent.status">
@@ -42,12 +33,10 @@ const statusLabel = computed(() => {
 <style scoped>
 .progress-panel {
   background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
-  padding: 12px; margin-top: 10px;
+  padding: 12px;
 }
 .progress-header { margin-bottom: 8px; font-weight: 600; }
 .progress-status.running { color: #667eea; }
-.progress-status.done { color: #28a745; }
-.progress-status.error { color: #dc3545; }
 .agent-list { display: flex; flex-direction: column; gap: 4px; }
 .agent-item {
   display: flex; align-items: center; gap: 8px;

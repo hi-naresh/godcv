@@ -49,11 +49,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   font-size: .9em; padding: 4px 8px; border-radius: 8px; display: none;
 }
 
+/* Multi-page mode */
+.sheet-multi .sheet-content {
+  overflow: visible !important;
+  height: auto !important;
+}
+
+.sheet-multi {
+  height: auto !important;
+  min-height: var(--page-h);
+}
+
+/* Prevent page breaks inside entries */
+.sheet-content li,
+.sheet-content p {
+  break-inside: avoid;
+}
+
 @page { size: A4; margin: 3mm; }
 @media print {
   body { background: white; margin: 0; }
-  .nav, .panel, .sidebar { display: none !important; }
+  .nav, .panel, .sidebar, .left-panel, .page-mode-toggle, .tab-bar, .preview-controls, .step-guide { display: none !important; }
   .sheet { box-shadow: none !important; margin: 0; padding: 3mm !important; width: 100% !important; }
-  .sheet-content { overflow: visible !important; height: auto !important; font-size: 11px !important; }
+  .sheet:not(.sheet-multi) .sheet-content { overflow: visible !important; height: auto !important; font-size: 11px !important; }
+  .sheet-multi { page-break-after: auto; }
+  .sheet-multi .sheet-content { overflow: visible !important; height: auto !important; }
   .warn { display: none !important; }
 }

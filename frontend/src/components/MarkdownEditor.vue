@@ -17,21 +17,26 @@ function onDrop(e: DragEvent) {
 </script>
 
 <template>
-  <textarea
-    class="md-editor"
-    :value="modelValue"
-    @input="onInput"
-    @drop.prevent="onDrop"
-    @dragover.prevent
-    placeholder="Paste or type Markdown here... (drag & drop .md files supported)"
-  />
+  <div class="editor-wrapper">
+    <label class="editor-label">Your Master Resume</label>
+    <textarea
+      class="md-editor"
+      :value="modelValue"
+      @input="onInput"
+      @drop.prevent="onDrop"
+      @dragover.prevent
+      placeholder="Paste your markdown resume here or drag & drop a .md file..."
+    />
+  </div>
 </template>
 
 <style scoped>
+.editor-wrapper { display: flex; flex-direction: column; gap: 4px; }
+.editor-label { font-size: 0.8rem; font-weight: 700; color: #555; }
 .md-editor {
-  width: 100%; min-height: 300px; resize: vertical;
-  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  width: 100%; min-height: 220px; resize: vertical;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   border: 1px dashed #b9b9b9; border-radius: 10px; padding: 10px; outline: none;
 }
-.md-editor:focus { border-color: #6a6a6a; }
+.md-editor:focus { border-color: #667eea; }
 </style>
