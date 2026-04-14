@@ -1,0 +1,27 @@
+[project]
+name = "godcv"
+version = "1.0.0"
+description = "Event-driven multi-agent resume tailoring system"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "aiosqlite>=0.21",
+    "httpx>=0.28",
+    "python-multipart>=0.0.20",
+    "markdown>=3.7",
+    "pydantic>=2.11",
+]
+
+[project.optional-dependencies]
+pdf = ["weasyprint>=63"]
+
+[project.scripts]
+godcv = "backend.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["backend*"]

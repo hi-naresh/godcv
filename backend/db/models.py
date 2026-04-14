@@ -1,0 +1,57 @@
+from pydantic import BaseModel
+from datetime import datetime
+
+
+class ProfileCreate(BaseModel):
+    name: str
+    master_resume: str
+    gemini_api_key: str = ""
+
+
+class ProfileUpdate(BaseModel):
+    name: str | None = None
+    master_resume: str | None = None
+    gemini_api_key: str | None = None
+
+
+class ProfileResponse(BaseModel):
+    id: int
+    name: str
+    master_resume: str
+    gemini_api_key: str
+    created_at: str
+    updated_at: str
+
+
+class RoleInsightResponse(BaseModel):
+    id: int
+    profile_id: int
+    role_type: str
+    strongest_points: list[str]
+    preferred_skill_order: list[str]
+    frequently_modified_sections: list[str]
+    tailoring_count: int
+
+
+class TailorRequest(BaseModel):
+    job_description: str
+    resume_override: str | None = None
+    gemini_api_key: str | None = None
+
+
+class TailoringHistoryResponse(BaseModel):
+    id: int
+    profile_id: int
+    job_title: str | None
+    company: str | None
+    job_description: str
+    original_resume: str
+    tailored_resume: str
+    orchestrator_plan: str | None
+    role_type: str | None
+    sections_modified: list[str]
+    created_at: str
+
+
+class ExportRequest(BaseModel):
+    markdown: str
