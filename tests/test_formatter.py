@@ -42,6 +42,17 @@ class TestExperienceFormatting:
         for line in result.split("\n"):
             assert line == line.rstrip(), f"Trailing whitespace found: {line!r}"
 
+    def test_blank_line_between_entries(self):
+        """Two experience entries with only single newline between them should get a blank line."""
+        broken = (
+            "**AI Engineer — BotWot** *Jan 2025 – Oct 2025*\n"
+            "- Built multi-agent CRM automation.\n"
+            "**LLM Engineer — InsurStaq** *March 2024 – Nov 2024*\n"
+            "- Built data pipelines."
+        )
+        result = validate_and_fix("experience", broken)
+        assert "\n\n**LLM Engineer — InsurStaq**" in result
+
 
 class TestSkillsFormatting:
     def test_adds_blank_line_between_categories(self):

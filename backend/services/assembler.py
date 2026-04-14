@@ -59,7 +59,7 @@ def assemble_resume(
                     entry_parts.append(modified_experience_entries[entry["key"]])
                 else:
                     entry_parts.append(entry["content"])
-            parts.append("\n".join(entry_parts))
+            parts.append("\n\n".join(entry_parts))
         elif isinstance(original, dict) and "_full" in original:
             parts.append(original["_full"])
         else:

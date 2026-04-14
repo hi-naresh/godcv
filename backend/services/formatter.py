@@ -40,6 +40,11 @@ def _fix_experience(content: str) -> str:
     content = re.sub(
         r"([^\n])(\*\*[^*]+(?:—|–|-)[^*]+\*\*)", r"\1\n\n\2", content
     )
+    # Ensure blank line before each experience entry title (even if preceded by just \n)
+    # Match: single newline followed by bold title with dash → insert extra newline
+    content = re.sub(
+        r"(?<!\n)\n(\*\*[^*]+(?:—|–|-)[^*]+\*\*)", r"\n\n\1", content
+    )
     # Split bullets joined on same line: "- text. - text" → separate lines
     content = re.sub(r"(\.\s*)- ", r".\n- ", content)
     return content
