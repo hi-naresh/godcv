@@ -62,18 +62,20 @@ RESUME:
 JOB DESCRIPTION:
 {job_description}
 
+CRITICAL: Keep your response CONCISE. Instructions must be 1-2 short sentences max. Key requirements and matched strengths should be short phrases, not full sentences. The entire JSON response MUST fit within 4000 tokens.
+
 Respond with a JSON object with this exact structure:
 {{
   "analysis": {{
     "role_type": "<category like ai_ml, backend, data_eng, frontend, devops, leadership>",
-    "key_requirements": ["<top 5-8 requirements from JD>"],
-    "matched_strengths": ["<user's existing strengths that match>"]
+    "key_requirements": ["<short phrase>", "<short phrase>"],
+    "matched_strengths": ["<short phrase>", "<short phrase>"]
   }},
   "tool_calls": [
-    {{"agent": "<agent_name>", "action": "<rewrite|reorder|keep>", "entry": "<for experience only>", "instructions": "<specific instructions>", "promote": ["<for reorder>"], "demote": ["<for reorder>"]}}
+    {{"agent": "<agent_name>", "action": "<rewrite|reorder|keep>", "entry": "<for experience only>", "instructions": "<1-2 sentences max>", "promote": ["<for reorder>"], "demote": ["<for reorder>"]}}
   ],
   "sections_unchanged": ["<section names to keep verbatim>"],
-  "section_order": ["<ordered list of ALL section names, e.g. Summary, Experience, Skills, Education, Projects, Volunteering and Interests>"]
+  "section_order": ["Summary", "Experience", "Skills", "Education", "Projects", "Volunteering and Interests"]
 }}"""
 
         return await self.gemini.generate_json(prompt)

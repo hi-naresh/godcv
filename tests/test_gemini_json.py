@@ -60,3 +60,31 @@ class TestRepairJson:
         assert result["analysis"]["role_type"] == "backend"
         assert len(result["tool_calls"]) == 1
         assert result["sections_unchanged"] == ["Education"]
+
+    def test_truncated_json_gets_closed(self, client):
+        """Simulates Gemini hitting MAX_TOKENS mid-output."""
+        text = """{
+  "analysis": {
+    "role_type": "data_eng",
+    "key_requirements": ["Python", "SQL"],
+    "matched_strengths": ["Strong Python"]
+  },
+  "tool_calls": [
+    {"agent": "summary", "action": "rewrite", "instructions": "Focus on data eng"}
+  ],
+  "sections_unchanged": ["Education"],
+  "section_order": ["Summary", "Experience", "Skills", "Education"""
+        # JSON is truncated mid-string — missing closing brackets/braces
+        result = json.loads(client._repair_json(text))
+        assert result["analysis"]["role_type"] == "data_eng"
+        assert result["sections_unchanged"] == ["Education"]
+
+    def test_truncated_mid_array(self, client):
+        text = '{"items": ["a", "b", "c'
+        result = json.loads(client._repair_json(text))
+        assert "items" in result
+
+    def test_truncated_mid_object_key(self, client):
+        text = '{"analysis": {"role_type": "backend"}, "tool_calls": [{"agent": "summary"'
+        result = json.loads(client._repair_json(text))
+        assert result["analysis"]["role_type"] == "backend"

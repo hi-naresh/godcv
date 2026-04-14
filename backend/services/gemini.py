@@ -73,6 +73,10 @@ class GeminiClient:
                 raise RuntimeError("Gemini blocked the response due to safety filters")
             raise RuntimeError(f"Gemini returned unexpected response structure (finishReason: {finish_reason})")
 
+        finish_reason = candidates[0].get("finishReason", "")
+        if finish_reason == "MAX_TOKENS":
+            logger.warning("Gemini response truncated (MAX_TOKENS). Output length: %d chars", len(text))
+
         return self._clean_response(text)
 
     async def generate_json(self, prompt: str) -> dict:
@@ -130,6 +134,37 @@ class GeminiClient:
             tail = s[last_brace + 1:].strip()
             if tail and not tail.startswith(']'):
                 s = s[:last_brace + 1]
+
+        # Handle truncated JSON (Gemini hit MAX_TOKENS mid-output)
+        # Count unmatched braces/brackets and close them
+        open_braces = 0
+        open_brackets = 0
+        in_str = False
+        i = 0
+        while i < len(s):
+            c = s[i]
+            if c == '\\' and in_str:
+                i += 2
+                continue
+            if c == '"':
+                in_str = not in_str
+            elif not in_str:
+                if c == '{': open_braces += 1
+                elif c == '}': open_braces -= 1
+                elif c == '[': open_brackets += 1
+                elif c == ']': open_brackets -= 1
+            i += 1
+
+        # If we're inside a string, close it
+        if in_str:
+            s += '"'
+        # Remove trailing comma before we close
+        s = re.sub(r',\s*$', '', s)
+        # Close unmatched brackets/braces
+        s += ']' * max(0, open_brackets)
+        s += '}' * max(0, open_braces)
+        # Final trailing comma cleanup after closing
+        s = re.sub(r',\s*([}\]])', r'\1', s)
         return s
 
     def _clean_response(self, text: str) -> str:
