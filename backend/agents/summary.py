@@ -16,6 +16,11 @@ RULES:
 - Keep the same professional tone
 - Return ONLY the rewritten summary text, no headers, no extra text
 
+FORMATTING:
+- Return ONLY a plain text paragraph — no markdown headers
+- Do NOT start with '# Summary' or any header
+- Do NOT add '---' separators
+
 SPECIFIC INSTRUCTIONS: {instructions}
 
 ORIGINAL SUMMARY:

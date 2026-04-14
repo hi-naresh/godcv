@@ -17,8 +17,16 @@ RULES:
 - Reorder categories and skills within categories to put most relevant first
 - You may add 1-2 skills from the JD if the candidate likely has them based on their experience
 - Do NOT fabricate skills the candidate doesn't have
-- Maintain the exact markdown formatting (bold category headers, comma-separated skills)
 - Return ONLY the skills section content, no section header
+
+FORMATTING:
+- Each category MUST use bold header with colon: **Category Name:** skill1, skill2
+- Each category MUST be separated by exactly ONE blank line
+
+Example of correct format:
+**Backend:** Python, FastAPI, Django.
+
+**Cloud/Infra:** AWS, Docker, Kubernetes.
 
 SKILLS TO PROMOTE (put first): {', '.join(promote) if promote else 'Use your judgment'}
 SKILLS TO DEMOTE (put later): {', '.join(demote) if demote else 'None'}

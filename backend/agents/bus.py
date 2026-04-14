@@ -6,6 +6,7 @@ from backend.agents.skills import SkillsAgent
 from backend.agents.experience import ExperienceAgent
 from backend.agents.projects import ProjectsAgent
 from backend.services.gemini import GeminiClient
+from backend.services.formatter import validate_and_fix
 
 
 class AgentBus:
@@ -126,4 +127,6 @@ async def _run_single_agent(agent, name: str, content: str, call: dict, jd: str)
         job_description=jd,
         extra=call,
     )
+    section_type = name.split(":")[0] if ":" in name else name
+    result = validate_and_fix(section_type, result)
     return name, result

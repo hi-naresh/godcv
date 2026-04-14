@@ -16,8 +16,20 @@ RULES:
 - Reorder to put most relevant projects first
 - You may slightly adjust bullet point wording to emphasize relevant aspects
 - Keep project names, links, and tech stacks accurate
-- Maintain the exact markdown formatting
 - Return ONLY the projects content, no section header
+
+FORMATTING:
+- Each project MUST start on its own line with bold title
+- Each bullet MUST start on its own new line with '- '
+- Separate projects with exactly ONE blank line
+
+Example of correct format:
+**[DataFlow](https://github.com/test)** | Stack - Python, Kafka
+- Built real-time streaming pipeline.
+- Processed 500K events per second.
+
+**[WebApp](https://github.com/test2)** | Stack - React, Node.js
+- Designed responsive dashboard interface.
 
 PROJECTS TO PROMOTE (put first): {', '.join(promote) if promote else 'Use your judgment based on JD'}
 

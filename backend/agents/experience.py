@@ -18,6 +18,16 @@ RULES:
 - Return the COMPLETE entry (title line + bullets), no section header
 - Keep 2-4 bullet points per entry
 
+FORMATTING:
+- The title line MUST be on its own line
+- Each bullet MUST start on its own new line with '- '
+- Do NOT merge bullets onto the same line
+
+Example of correct format:
+**Senior Engineer — Acme Corp** *Jan 2023 – Present*
+- Built scalable data pipelines processing 1M+ records daily.
+- Designed microservices architecture reducing latency by 30%.
+
 SPECIFIC INSTRUCTIONS: {instructions}
 
 ORIGINAL ENTRY:
