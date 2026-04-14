@@ -37,3 +37,32 @@ export function detectSeniority(jobDescription: string): SeniorityLevel | null {
 export const SENIORITY_OPTIONS: SeniorityLevel[] = [
   'graduate', 'junior', 'mid-level', 'senior', 'lead', 'principal'
 ]
+
+/**
+ * Extract a job title from JD text. Looks for common patterns like
+ * "Role Title - Company" or "Role Title at Company" in the first few lines.
+ */
+export function detectJobTitle(jobDescription: string): string | null {
+  const lines = jobDescription.trim().split('\n').slice(0, 5)
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.length > 120) continue
+
+    // "Role - Company" or "Role at Company" or "Role | Company" or "Role @ Company"
+    const match = trimmed.match(/^(.+?)\s*(?:[-–—|@]|at|,)\s*(.+)$/i)
+    if (match) {
+      const role = match[1].trim()
+      const company = match[2].trim().split(/[.,;(]/)[0].trim()
+      // Filter out lines that are clearly not titles
+      if (role.split(' ').length <= 8 && company.split(' ').length <= 6) {
+        return `${role} @ ${company}`
+      }
+    }
+
+    // Just a short title line by itself (< 60 chars, first line)
+    if (trimmed.length < 60 && lines.indexOf(line) === 0 && /engineer|developer|designer|manager|analyst|scientist|lead/i.test(trimmed)) {
+      return trimmed
+    }
+  }
+  return null
+}

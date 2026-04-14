@@ -1,5 +1,10 @@
 <script setup lang="ts">
-const props = defineProps<{ modelValue: string }>()
+const props = withDefaults(defineProps<{
+  modelValue: string
+  label?: string
+}>(), {
+  label: 'Your Master Resume',
+})
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 function onInput(e: Event) {
@@ -18,7 +23,7 @@ function onDrop(e: DragEvent) {
 
 <template>
   <div class="editor-wrapper">
-    <label class="editor-label">Your Master Resume</label>
+    <label class="editor-label">{{ label }}</label>
     <textarea
       class="md-editor"
       :value="modelValue"

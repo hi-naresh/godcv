@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useProfile } from '../composables/useProfile'
 import { useTailor } from '../composables/useTailor'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import ResumePreview from '../components/ResumePreview.vue'
 import JobCard from '../components/JobCard.vue'
-import AgentProgress from '../components/AgentProgress.vue'
 import TabBar from '../components/TabBar.vue'
 import PageModeToggle from '../components/PageModeToggle.vue'
 
@@ -14,7 +13,7 @@ const props = defineProps<{ apiKey?: string }>()
 
 const store = useEditorStore()
 const { fetchProfile } = useProfile()
-const { startTailoring, startBatchTailoring } = useTailor()
+const { startBatchTailoring } = useTailor()
 
 onMounted(async () => {
   const p = await fetchProfile()
@@ -26,9 +25,38 @@ onMounted(async () => {
 
 const jobList = computed(() => [...store.jobs.values()])
 const activeJob = computed(() => store.activeJobId ? store.jobs.get(store.activeJobId) ?? null : null)
-const previewMarkdown = computed(() => {
-  if (!store.activeJobId) return store.markdown
-  return activeJob.value?.result ?? store.markdown
+
+// Editor shows: job result (editable) when a job tab is active, master resume on "Original"
+const editorMarkdown = computed({
+  get: () => {
+    if (!store.activeJobId) return store.markdown
+    return activeJob.value?.result ?? store.markdown
+  },
+  set: (val: string) => {
+    if (!store.activeJobId) {
+      store.markdown = val
+    } else if (activeJob.value?.result) {
+      // User is editing the tailored result
+      store.updateJob(store.activeJobId, { result: val })
+    } else {
+      store.markdown = val
+    }
+  },
+})
+
+const editorLabel = computed(() => {
+  if (!store.activeJobId) return 'Master Resume'
+  if (activeJob.value?.result) return `Tailored CV — ${activeJob.value.title || activeJob.value.id}`
+  return 'Master Resume (not yet tailored)'
+})
+
+// Preview uses same markdown as editor
+const previewMarkdown = computed(() => editorMarkdown.value)
+
+// Agent statuses for inline indicators on the active job
+const activeAgentStatuses = computed(() => {
+  if (!activeJob.value || activeJob.value.tailoringStatus !== 'running') return undefined
+  return activeJob.value.agentStatuses
 })
 
 const currentPageMode = computed({
@@ -65,7 +93,6 @@ function tailorAll() {
   if (!store.markdown.trim()) return alert('Load a resume first.')
   const key = props.apiKey || store.profile?.gemini_api_key || ''
   startBatchTailoring(key, store.markdown)
-  // Auto-switch to the first job tab
   const firstJob = [...store.jobs.keys()][0]
   if (firstJob) store.activeJobId = firstJob
 }
@@ -78,7 +105,7 @@ function exportPdf() { window.print() }
     <!-- LEFT PANEL -->
     <aside class="left-panel">
       <section class="panel-section">
-        <MarkdownEditor v-model="store.markdown" />
+        <MarkdownEditor v-model="editorMarkdown" :label="editorLabel" />
       </section>
 
       <section class="panel-section jobs-section">
@@ -128,8 +155,6 @@ function exportPdf() { window.print() }
         <button class="export-btn" @click="exportPdf">Print / PDF</button>
       </div>
 
-      <AgentProgress v-if="activeJob && activeJob.tailoringStatus === 'running'" :job="activeJob" />
-
       <div v-if="!store.markdown" class="empty-preview">
         <div class="empty-preview-content">
           <div class="empty-preview-icon">&#128196;</div>
@@ -141,6 +166,7 @@ function exportPdf() { window.print() }
         v-else
         :markdown="previewMarkdown"
         :pageMode="currentPageMode"
+        :agentStatuses="activeAgentStatuses"
       />
 
       <div v-if="!store.markdown && !hasJobs" class="step-guide">

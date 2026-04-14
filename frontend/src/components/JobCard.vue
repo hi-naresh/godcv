@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SENIORITY_OPTIONS, detectSeniority, type SeniorityLevel } from '../composables/useSeniority'
+import { SENIORITY_OPTIONS, detectSeniority, detectJobTitle, type SeniorityLevel } from '../composables/useSeniority'
 import type { JobState } from '../stores/editor'
 
 const props = defineProps<{ job: JobState }>()
@@ -16,6 +16,11 @@ function onJdInput(value: string) {
   const detected = detectSeniority(value)
   if (detected) {
     emit('update:seniorityLevel', detected)
+  }
+  // Auto-detect title if user hasn't manually typed one
+  if (!props.job.title) {
+    const title = detectJobTitle(value)
+    if (title) emit('update:title', title)
   }
 }
 </script>

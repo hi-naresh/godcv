@@ -5,6 +5,7 @@ import { useMarkdown } from '../composables/useMarkdown'
 const props = defineProps<{
   markdown: string
   pageMode: 'single' | 'multi'
+  agentStatuses?: Record<string, 'pending' | 'running' | 'done'>
 }>()
 
 const { renderResume, getResumeSettings } = useMarkdown()
@@ -12,6 +13,32 @@ const contentRef = ref<HTMLElement>()
 const showWarn = ref(false)
 
 const settings = computed(() => getResumeSettings(props.markdown))
+
+// Map agent keys to section header text for inline indicators
+const refiningSections = computed(() => {
+  if (!props.agentStatuses) return new Set<string>()
+  const sections = new Set<string>()
+  for (const [key, status] of Object.entries(props.agentStatuses)) {
+    if (status === 'running' || status === 'pending') {
+      const agent = key.split(':')[0]
+      if (agent === 'summary') sections.add('Summary')
+      else if (agent === 'skills') sections.add('Skills')
+      else if (agent === 'experience') sections.add('Experience')
+      else if (agent === 'projects') sections.add('Projects')
+    }
+  }
+  return sections
+})
+
+const renderedHtml = computed(() => {
+  let html = renderResume(props.markdown)
+  // Inject refining badges into section h1 headers
+  for (const section of refiningSections.value) {
+    const regex = new RegExp(`(<h1>)(${section})(</h1>)`, 'i')
+    html = html.replace(regex, `$1$2 <span class="refining-badge">refining...</span>$3`)
+  }
+  return html
+})
 
 watch([() => props.markdown, () => props.pageMode], async () => {
   await nextTick()
@@ -55,7 +82,7 @@ function applyMultiPageStyles() {
 <template>
   <div :class="['preview-container', { 'multi-page': pageMode === 'multi' }]">
     <section :class="['sheet', { 'sheet-multi': pageMode === 'multi' }]">
-      <div ref="contentRef" class="sheet-content" v-html="renderResume(markdown)" />
+      <div ref="contentRef" class="sheet-content" v-html="renderedHtml" />
       <div class="warn" v-show="showWarn && pageMode === 'single'">Content exceeds one page at minimum size.</div>
     </section>
   </div>
