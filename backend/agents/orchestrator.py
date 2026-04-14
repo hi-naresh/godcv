@@ -41,10 +41,14 @@ For each section that needs changes, specify what agent should handle it and wha
 
 IMPORTANT RULES:
 - Frontmatter (between --- markers at the top) is NEVER modified
-- Education and Volunteering sections are almost always kept unchanged
+- Education and Volunteering sections are almost always kept unchanged in CONTENT
 - Only modify sections where the job description demands different emphasis
 - For Experience, decide PER ENTRY whether to modify or keep
 - Preserve the user's truthful experience -- only change wording and emphasis, never fabricate
+- SECTION ORDER: Decide the best order for sections based on seniority and role type.
+  For graduate/junior: Summary, Education, Skills, Experience, Projects, Volunteering
+  For mid-level+: Summary, Experience, Skills, Education, Projects, Volunteering
+  Adjust as appropriate for the specific role.
 
 AVAILABLE AGENTS AND ACTIONS:
 - agent: "summary", action: "rewrite" -- rewrite the summary to match job requirements
@@ -68,7 +72,8 @@ Respond with a JSON object with this exact structure:
   "tool_calls": [
     {{"agent": "<agent_name>", "action": "<rewrite|reorder|keep>", "entry": "<for experience only>", "instructions": "<specific instructions>", "promote": ["<for reorder>"], "demote": ["<for reorder>"]}}
   ],
-  "sections_unchanged": ["<section names to keep verbatim>"]
+  "sections_unchanged": ["<section names to keep verbatim>"],
+  "section_order": ["<ordered list of ALL section names, e.g. Summary, Experience, Skills, Education, Projects, Volunteering and Interests>"]
 }}"""
 
         return await self.gemini.generate_json(prompt)

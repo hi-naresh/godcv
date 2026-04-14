@@ -49,3 +49,41 @@ class TestAssembleWithModifications:
         parsed = parse_resume(sample_resume)
         output = assemble_resume(parsed, {})
         assert "---" in output
+
+
+class TestAssembleWithSectionOrder:
+    def test_reorders_sections(self, sample_resume):
+        parsed = parse_resume(sample_resume)
+        order = ["Summary", "Experience", "Skills", "Education", "Projects", "Volunteering and Interests"]
+        output = assemble_resume(parsed, {}, section_order=order)
+        # Experience should come before Skills and Education
+        exp_pos = output.index("# Experience")
+        skills_pos = output.index("# Skills")
+        edu_pos = output.index("# Education")
+        assert exp_pos < skills_pos
+        assert exp_pos < edu_pos
+
+    def test_original_order_without_section_order(self, sample_resume):
+        parsed = parse_resume(sample_resume)
+        output = assemble_resume(parsed, {})
+        # Original order: Summary, Education, Skills, Experience
+        summary_pos = output.index("# Summary")
+        edu_pos = output.index("# Education")
+        skills_pos = output.index("# Skills")
+        exp_pos = output.index("# Experience")
+        assert summary_pos < edu_pos < skills_pos < exp_pos
+
+    def test_missing_sections_in_order_appended(self, sample_resume):
+        parsed = parse_resume(sample_resume)
+        # Only mention a few sections — rest should still appear
+        order = ["Experience", "Summary"]
+        output = assemble_resume(parsed, {}, section_order=order)
+        assert "# Experience" in output
+        assert "# Summary" in output
+        assert "# Skills" in output
+        assert "# Education" in output
+        # Experience and Summary should come first
+        exp_pos = output.index("# Experience")
+        summary_pos = output.index("# Summary")
+        skills_pos = output.index("# Skills")
+        assert exp_pos < summary_pos < skills_pos

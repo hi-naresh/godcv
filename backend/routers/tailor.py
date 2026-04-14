@@ -100,7 +100,8 @@ async def tailor_resume(request: TailorRequest):
 
             modified_sections = result["modified_sections"] if result else {}
             modified_entries = result["modified_entries"] if result else {}
-            tailored_md = assemble_resume(parsed, modified_sections, modified_entries)
+            section_order = plan.get("section_order")
+            tailored_md = assemble_resume(parsed, modified_sections, modified_entries, section_order)
 
             sections_modified = list(modified_sections.keys()) + [f"experience:{k}" for k in modified_entries]
             logger.info("Tailoring complete — %d sections modified, %d kept",

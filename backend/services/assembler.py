@@ -5,6 +5,7 @@ def assemble_resume(
     original_parsed: dict,
     modified_sections: dict[str, str],
     modified_experience_entries: dict[str, str] | None = None,
+    section_order: list[str] | None = None,
 ) -> str:
     """Reconstruct full resume markdown from original + modifications.
 
@@ -12,12 +13,14 @@ def assemble_resume(
         original_parsed: Output of parse_resume()
         modified_sections: Dict of section_name -> new markdown content (only modified sections)
         modified_experience_entries: Dict of entry_key -> new markdown content (only modified entries)
+        section_order: Optional ordered list of section names to reorder output
 
     Rules:
         1. Frontmatter: always from original, verbatim
-        2. Sections in original order; use modified version if present, else original verbatim
-        3. Experience: per-entry replacement; unmodified entries preserved verbatim
-        4. Separators restored between sections
+        2. Sections in specified order (or original order if not given)
+        3. Use modified version if present, else original verbatim
+        4. Experience: per-entry replacement; unmodified entries preserved verbatim
+        5. Separators restored between sections
     """
     parts = []
 
@@ -25,9 +28,25 @@ def assemble_resume(
         parts.append(original_parsed["frontmatter"])
 
     sections = original_parsed["sections"]
-    section_keys = list(sections.keys())
+    original_keys = list(sections.keys())
 
-    for i, key in enumerate(section_keys):
+    # Determine section order
+    if section_order:
+        # Match plan section names to actual keys (case-insensitive)
+        ordered_keys = []
+        remaining = list(original_keys)
+        for planned in section_order:
+            for key in remaining:
+                if key.lower() == planned.lower():
+                    ordered_keys.append(key)
+                    remaining.remove(key)
+                    break
+        # Append any sections not mentioned in the plan
+        ordered_keys.extend(remaining)
+    else:
+        ordered_keys = original_keys
+
+    for i, key in enumerate(ordered_keys):
         parts.append(f"\n# {key}")
         original = sections[key]
 
@@ -46,7 +65,7 @@ def assemble_resume(
         else:
             parts.append(str(original))
 
-        if i < len(section_keys) - 1:
+        if i < len(ordered_keys) - 1:
             parts.append("\n---")
 
     return "\n".join(parts) + "\n"
