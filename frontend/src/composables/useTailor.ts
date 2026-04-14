@@ -3,13 +3,17 @@ import { useEditorStore } from '../stores/editor'
 export function useTailor() {
   const store = useEditorStore()
 
-  function startTailoring(jobDescription: string, apiKey?: string, resumeOverride?: string) {
-    store.resetTailoring()
-    store.tailoringStatus = 'running'
+  function startTailoring(jobId: string, apiKey?: string, resumeOverride?: string) {
+    const job = store.jobs.get(jobId)
+    if (!job) return
 
-    const body: Record<string, string> = { job_description: jobDescription }
+    store.resetJobTailoring(jobId)
+    store.updateJob(jobId, { tailoringStatus: 'running' })
+
+    const body: Record<string, string> = { job_description: job.jobDescription }
     if (apiKey) body.gemini_api_key = apiKey
     if (resumeOverride) body.resume_override = resumeOverride
+    if (job.seniorityLevel) body.seniority_level = job.seniorityLevel
 
     fetch('/api/tailor', {
       method: 'POST',
@@ -36,44 +40,64 @@ export function useTailor() {
           } else if (line.startsWith('data: ') && eventType) {
             try {
               const data = JSON.parse(line.slice(6))
-              handleEvent(eventType, data)
+              handleEvent(jobId, eventType, data)
             } catch {}
             eventType = ''
           }
         }
       }
     }).catch((err) => {
-      store.tailoringStatus = 'error'
-      store.error = err.message
+      store.updateJob(jobId, { tailoringStatus: 'error', error: err.message })
     })
   }
 
-  function handleEvent(event: string, data: Record<string, unknown>) {
+  function startBatchTailoring(apiKey?: string, resumeOverride?: string) {
+    for (const [jobId, job] of store.jobs) {
+      if (job.jobDescription.trim()) {
+        startTailoring(jobId, apiKey, resumeOverride)
+      }
+    }
+  }
+
+  function handleEvent(jobId: string, event: string, data: Record<string, unknown>) {
+    const job = store.jobs.get(jobId)
+    if (!job) return
+
     switch (event) {
-      case 'plan':
-        store.tailoringPlan = data.tool_calls as any[]
-        for (const call of store.tailoringPlan || []) {
+      case 'plan': {
+        const plan = data.tool_calls as any[]
+        const statuses: Record<string, 'pending' | 'running' | 'done'> = {}
+        for (const call of plan || []) {
           const key = call.entry ? `${call.agent}:${call.entry}` : call.agent
-          store.agentStatuses[key] = call.action === 'keep' ? 'done' : 'pending'
+          statuses[key] = call.action === 'keep' ? 'done' : 'pending'
         }
+        store.updateJob(jobId, { tailoringPlan: plan, agentStatuses: statuses })
         break
-      case 'agent_start':
-        store.agentStatuses[data.agent as string] = 'running'
+      }
+      case 'agent_start': {
+        const statuses = { ...job.agentStatuses, [data.agent as string]: 'running' as const }
+        store.updateJob(jobId, { agentStatuses: statuses })
         break
-      case 'agent_done':
-        store.agentStatuses[data.agent as string] = 'done'
+      }
+      case 'agent_done': {
+        const statuses = { ...job.agentStatuses, [data.agent as string]: 'done' as const }
+        store.updateJob(jobId, { agentStatuses: statuses })
         break
+      }
       case 'complete':
-        store.tailoringStatus = 'done'
-        store.tailoringResult = data.markdown as string
-        store.markdown = data.markdown as string
+        store.updateJob(jobId, {
+          tailoringStatus: 'done',
+          result: data.markdown as string,
+        })
         break
       case 'error':
-        store.tailoringStatus = 'error'
-        store.error = data.message as string
+        store.updateJob(jobId, {
+          tailoringStatus: 'error',
+          error: data.message as string,
+        })
         break
     }
   }
 
-  return { startTailoring }
+  return { startTailoring, startBatchTailoring }
 }
