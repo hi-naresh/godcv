@@ -62,10 +62,12 @@ function removeJob(id: string) {
 }
 
 function tailorAll() {
-  const key = props.apiKey || store.profile?.gemini_api_key || ''
-  if (!key) return alert('Set your Gemini API key first (key icon in the nav bar).')
   if (!store.markdown.trim()) return alert('Load a resume first.')
+  const key = props.apiKey || store.profile?.gemini_api_key || ''
   startBatchTailoring(key, store.markdown)
+  // Auto-switch to the first job tab
+  const firstJob = [...store.jobs.keys()][0]
+  if (firstJob) store.activeJobId = firstJob
 }
 
 function exportPdf() { window.print() }
