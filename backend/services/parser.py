@@ -44,6 +44,25 @@ def _extract_company_key(title: str) -> str:
     return title[:20]
 
 
+def parse_project_entries(section_content: str) -> list[dict]:
+    """Split projects section into individual project entries.
+    Each entry starts with a bold title line like:
+    **[ProjectName](url)** | Stack - Tech1, Tech2
+    or **ProjectName** | Stack - Tech1, Tech2
+    """
+    entries = []
+    parts = re.split(r'(?=^\*\*[\[{]?.+?\*\*)', section_content, flags=re.MULTILINE)
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        title_match = re.match(r'^\*\*\[?([^\]*]+)', part)
+        title = title_match.group(1).strip() if title_match else "Unknown"
+        key = re.split(r'[\s(\]|]', title)[0]
+        entries.append({"key": key, "title": title, "content": part})
+    return entries
+
+
 def parse_sections(body: str) -> tuple[OrderedDict, list[str]]:
     """Parse markdown body into ordered sections.
     Returns (sections_dict, separators_list)."""
@@ -71,6 +90,13 @@ def parse_sections(body: str) -> tuple[OrderedDict, list[str]]:
                 sections[current_key] = content
                 if current_key.lower() == "experience":
                     entries = parse_experience_entries(content)
+                    if entries:
+                        sections[current_key] = {
+                            "_full": content,
+                            "_entries": entries,
+                        }
+                if current_key.lower() == "projects":
+                    entries = parse_project_entries(content)
                     if entries:
                         sections[current_key] = {
                             "_full": content,

@@ -101,6 +101,27 @@ class TestParseSections:
         assert "Summary" in separators
 
 
+class TestParseProjectEntries:
+    def test_splits_projects_into_entries(self, parsed_resume):
+        projects = parsed_resume["sections"]["Projects"]
+        assert isinstance(projects, dict)
+        assert "_entries" in projects
+        assert "_full" in projects
+        assert len(projects["_entries"]) == 2
+
+    def test_project_entry_keys(self, parsed_resume):
+        projects = parsed_resume["sections"]["Projects"]
+        keys = [e["key"] for e in projects["_entries"]]
+        assert "DataFlow" in keys[0] or "DataFlow" in keys[1]
+
+    def test_project_entry_content(self, parsed_resume):
+        projects = parsed_resume["sections"]["Projects"]
+        entry = projects["_entries"][0]
+        assert "content" in entry
+        assert "title" in entry
+        assert entry["content"].strip() != ""
+
+
 class TestParseResume:
     def test_full_parse(self, sample_resume):
         result = parse_resume(sample_resume)
