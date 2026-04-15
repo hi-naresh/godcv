@@ -4,12 +4,11 @@ import { useProfile } from '../composables/useProfile'
 import { useEditorStore } from '../stores/editor'
 
 const store = useEditorStore()
-const { fetchProfile, createProfile, updateProfile, fetchInsights, deleteInsight } = useProfile()
+const { fetchProfile, createProfile, updateProfile } = useProfile()
 
 const name = ref('')
 const resume = ref('')
 const apiKey = ref('')
-const insights = ref<any[]>([])
 const hasProfile = ref(false)
 const saving = ref(false)
 const msg = ref('')
@@ -22,7 +21,6 @@ onMounted(async () => {
     resume.value = p.master_resume
     apiKey.value = p.gemini_api_key || ''
     store.profile = p
-    insights.value = await fetchInsights()
   }
 })
 
@@ -42,10 +40,6 @@ async function save() {
   } finally { saving.value = false }
 }
 
-async function removeInsight(id: number) {
-  await deleteInsight(id)
-  insights.value = insights.value.filter(i => i.id !== id)
-}
 </script>
 
 <template>
@@ -62,22 +56,6 @@ async function removeInsight(id: number) {
       <span v-if="msg" class="msg">{{ msg }}</span>
     </div>
 
-    <div v-if="insights.length" class="insights">
-      <h3>Learned Role Insights</h3>
-      <div v-for="insight in insights" :key="insight.id" class="insight-card">
-        <div class="insight-header">
-          <strong>{{ insight.role_type }}</strong>
-          <span class="count">{{ insight.tailoring_count }}x tailored</span>
-          <button class="delete-btn" @click="removeInsight(insight.id)">Remove</button>
-        </div>
-        <div class="insight-body">
-          <div v-if="insight.strongest_points?.length">
-            <small>Strongest points:</small>
-            <ul><li v-for="p in insight.strongest_points" :key="p">{{ p }}</li></ul>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -98,19 +76,4 @@ async function removeInsight(id: number) {
   border: none; background: #111; color: #fff; cursor: pointer;
 }
 .msg { color: #28a745; font-size: 0.85rem; }
-.insights { margin-top: 20px; }
-.insights h3 { margin-bottom: 10px; }
-.insight-card {
-  background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
-  padding: 12px; margin-bottom: 8px;
-}
-.insight-header { display: flex; align-items: center; gap: 10px; }
-.count { color: #666; font-size: 0.8rem; }
-.delete-btn {
-  margin-left: auto; font-size: 0.75rem; background: none;
-  border: 1px solid #ddd; border-radius: 6px; padding: 2px 8px; cursor: pointer;
-  color: #dc3545;
-}
-.insight-body { margin-top: 6px; font-size: 0.85rem; }
-.insight-body ul { margin: 4px 0 0 16px; }
 </style>

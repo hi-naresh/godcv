@@ -6,12 +6,14 @@ class ProfileCreate(BaseModel):
     name: str
     master_resume: str
     gemini_api_key: str = ""
+    page_mode: str = "single"
 
 
 class ProfileUpdate(BaseModel):
     name: str | None = None
     master_resume: str | None = None
     gemini_api_key: str | None = None
+    page_mode: str | None = None
 
 
 class ProfileResponse(BaseModel):
@@ -19,6 +21,7 @@ class ProfileResponse(BaseModel):
     name: str
     master_resume: str
     gemini_api_key: str
+    page_mode: str
     created_at: str
     updated_at: str
 

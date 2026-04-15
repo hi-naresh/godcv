@@ -7,7 +7,6 @@ import MarkdownEditor from '../components/MarkdownEditor.vue'
 import ResumePreview from '../components/ResumePreview.vue'
 import JobCard from '../components/JobCard.vue'
 import TabBar from '../components/TabBar.vue'
-import PageModeToggle from '../components/PageModeToggle.vue'
 
 const props = defineProps<{ apiKey?: string }>()
 
@@ -20,6 +19,7 @@ onMounted(async () => {
   if (p) {
     store.profile = p
     if (!store.markdown) store.markdown = p.master_resume
+    if (p.page_mode) store.pageMode = p.page_mode
   }
 })
 
@@ -59,18 +59,9 @@ const activeAgentStatuses = computed(() => {
   return activeJob.value.agentStatuses
 })
 
-const currentPageMode = computed({
-  get: () => {
-    if (!store.activeJobId) return store.pageMode
-    return activeJob.value?.pageMode ?? 'single'
-  },
-  set: (val: 'single' | 'multi') => {
-    if (!store.activeJobId) {
-      store.pageMode = val
-    } else {
-      store.updateJob(store.activeJobId, { pageMode: val })
-    }
-  },
+const currentPageMode = computed(() => {
+  if (!store.activeJobId) return store.pageMode
+  return activeJob.value?.pageMode ?? 'single'
 })
 
 const hasJobs = computed(() => store.jobs.size > 0)
@@ -151,7 +142,6 @@ function exportPdf() { window.print() }
       />
 
       <div class="preview-controls">
-        <PageModeToggle v-model="currentPageMode" />
         <button class="export-btn" @click="exportPdf">Print / PDF</button>
       </div>
 

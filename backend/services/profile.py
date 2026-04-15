@@ -12,7 +12,7 @@ async def get_profile(profile_id: int = 1) -> dict | None:
     return dict(row)
 
 
-async def create_profile(name: str, master_resume: str, gemini_api_key: str = "") -> dict:
+async def create_profile(name: str, master_resume: str, gemini_api_key: str = "", page_mode: str = "single") -> dict:
     db = await get_db()
     parsed = parse_resume(master_resume)
     parsed_json = json.dumps({
@@ -21,8 +21,8 @@ async def create_profile(name: str, master_resume: str, gemini_api_key: str = ""
         "separators": parsed["separators"],
     })
     cursor = await db.execute(
-        "INSERT INTO profiles (name, master_resume, parsed_sections, gemini_api_key) VALUES (?, ?, ?, ?)",
-        (name, master_resume, parsed_json, gemini_api_key),
+        "INSERT INTO profiles (name, master_resume, parsed_sections, gemini_api_key, page_mode) VALUES (?, ?, ?, ?, ?)",
+        (name, master_resume, parsed_json, gemini_api_key, page_mode),
     )
     await db.commit()
     return await get_profile(cursor.lastrowid)
@@ -32,7 +32,7 @@ async def update_profile(profile_id: int, **kwargs) -> dict | None:
     db = await get_db()
     fields = []
     values = []
-    for key in ("name", "master_resume", "gemini_api_key"):
+    for key in ("name", "master_resume", "gemini_api_key", "page_mode"):
         if key in kwargs and kwargs[key] is not None:
             fields.append(f"{key} = ?")
             values.append(kwargs[key])

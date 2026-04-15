@@ -21,7 +21,7 @@ export function useProfile() {
     return res.json()
   }
 
-  async function updateProfile(data: Partial<{ name: string; master_resume: string; gemini_api_key: string }>): Promise<Profile> {
+  async function updateProfile(data: Partial<{ name: string; master_resume: string; gemini_api_key: string; page_mode: string }>): Promise<Profile> {
     const res = await fetch('/api/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

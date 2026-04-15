@@ -28,31 +28,10 @@ function onJdInput(value: string) {
 <template>
   <div class="job-card" :class="job.tailoringStatus">
     <div class="job-card-header">
-      <input
-        class="job-title-input"
-        :value="job.title"
-        @input="$emit('update:title', ($event.target as HTMLInputElement).value)"
-        placeholder="Job title (e.g., ML Engineer @ Google)"
-      />
-      <button class="remove-btn" @click="$emit('remove')" title="Remove job">&times;</button>
-    </div>
-    <div class="job-card-row">
-      <select
-        class="seniority-select"
-        :value="job.seniorityLevel || ''"
-        @change="$emit('update:seniorityLevel', ($event.target as HTMLSelectElement).value as SeniorityLevel || null)"
-      >
-        <option value="">Auto-detect level</option>
-        <option v-for="level in SENIORITY_OPTIONS" :key="level" :value="level">
-          {{ level.charAt(0).toUpperCase() + level.slice(1) }}
-        </option>
-      </select>
       <span v-if="job.tailoringStatus === 'done'" class="status-badge done">Done</span>
       <span v-else-if="job.tailoringStatus === 'running'" class="status-badge running">Running...</span>
       <span v-else-if="job.tailoringStatus === 'error'" class="status-badge error">Error</span>
-    </div>
-    <div v-if="job.tailoringStatus === 'error' && job.error" class="error-message">
-      {{ job.error }}
+      <button class="remove-btn" @click="$emit('remove')" title="Remove job">&times;</button>
     </div>
     <textarea
       class="jd-textarea"
@@ -60,6 +39,25 @@ function onJdInput(value: string) {
       @input="onJdInput(($event.target as HTMLTextAreaElement).value)"
       placeholder="Paste job description here..."
     />
+    <div v-if="job.tailoringStatus === 'error' && job.error" class="error-message">
+      {{ job.error }}
+    </div>
+    <input
+      class="job-title-input"
+      :value="job.title"
+      @input="$emit('update:title', ($event.target as HTMLInputElement).value)"
+      placeholder="Job title (auto-detected from description)"
+    />
+    <select
+      class="seniority-select"
+      :value="job.seniorityLevel || ''"
+      @change="$emit('update:seniorityLevel', ($event.target as HTMLSelectElement).value as SeniorityLevel || null)"
+    >
+      <option value="">Auto-detect level</option>
+      <option v-for="level in SENIORITY_OPTIONS" :key="level" :value="level">
+        {{ level.charAt(0).toUpperCase() + level.slice(1) }}
+      </option>
+    </select>
   </div>
 </template>
 
@@ -72,7 +70,7 @@ function onJdInput(value: string) {
 .job-card.running { border-color: #667eea; }
 .job-card.done { border-color: #28a745; }
 .job-card.error { border-color: #dc3545; }
-.job-card-header { display: flex; align-items: center; gap: 6px; }
+.job-card-header { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
 .job-title-input {
   flex: 1; border: 1px solid #d9d9d9; border-radius: 6px;
   padding: 6px 8px; font-size: 0.85rem; font-weight: 600;

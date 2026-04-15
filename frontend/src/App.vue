@@ -13,7 +13,9 @@ const apiKey = ref('')
       <div class="nav-links">
         <RouterLink to="/" class="nav-link">Editor</RouterLink>
         <RouterLink to="/profile" class="nav-link">Profile</RouterLink>
+        <RouterLink to="/roles" class="nav-link">Roles</RouterLink>
         <RouterLink to="/history" class="nav-link">History</RouterLink>
+        <RouterLink to="/preferences" class="nav-link">Preferences</RouterLink>
       </div>
       <div class="nav-right">
         <ApiKeyModal v-model="apiKey" />

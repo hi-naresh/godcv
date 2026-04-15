@@ -33,6 +33,7 @@ async def _init_tables(db: aiosqlite.Connection):
             master_resume TEXT NOT NULL,
             parsed_sections TEXT,
             gemini_api_key TEXT DEFAULT '',
+            page_mode TEXT DEFAULT 'single',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -64,3 +65,10 @@ async def _init_tables(db: aiosqlite.Connection):
         );
     """)
     await db.commit()
+
+    # Migrations for existing databases
+    cursor = await db.execute("PRAGMA table_info(profiles)")
+    columns = [row[1] for row in await cursor.fetchall()]
+    if "page_mode" not in columns:
+        await db.execute("ALTER TABLE profiles ADD COLUMN page_mode TEXT DEFAULT 'single'")
+        await db.commit()

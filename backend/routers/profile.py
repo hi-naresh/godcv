@@ -19,6 +19,7 @@ async def create_profile(data: ProfileCreate):
         name=data.name,
         master_resume=data.master_resume,
         gemini_api_key=data.gemini_api_key,
+        page_mode=data.page_mode,
     )
     return p
 

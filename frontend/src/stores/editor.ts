@@ -16,6 +16,7 @@ export interface Profile {
   name: string
   master_resume: string
   gemini_api_key: string
+  page_mode: 'single' | 'multi'
 }
 
 export interface JobState {

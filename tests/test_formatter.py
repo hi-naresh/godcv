@@ -53,6 +53,50 @@ class TestExperienceFormatting:
         result = validate_and_fix("experience", broken)
         assert "\n\n**LLM Engineer — InsurStaq**" in result
 
+    def test_broken_bold_across_lines(self):
+        """Bold text split across lines should be rejoined."""
+        broken = (
+            "**AI Engineer — BotWot** *Jan 2025 – Oct 2025*\n"
+            "- Developed **multi-agent CRM\n"
+            "** automation using LangChain."
+        )
+        result = validate_and_fix("experience", broken)
+        assert "**multi-agent CRM**" in result
+        assert "\n**" not in result or "\n**AI Engineer" in result  # Only title should start with **
+
+    def test_broken_bold_with_blank_lines(self):
+        """Bold text with blank lines inside should be fixed."""
+        broken = (
+            "**Role — Company** *Dates*\n"
+            "- Defining **validation strategies\n"
+            "\n"
+            "** for agent behavior."
+        )
+        result = validate_and_fix("experience", broken)
+        assert "**validation strategies**" in result
+
+    def test_inline_bold_not_treated_as_title(self):
+        """Inline bold text inside bullets should NOT be treated as a new experience entry."""
+        content = (
+            "**AI Engineer — BotWot** *Jan 2025 – Oct 2025*\n"
+            "- Built **multi-agent CRM automation** targeting 35% uplift.\n"
+            "- Designed **data pipelines** for customer workflows."
+        )
+        result = validate_and_fix("experience", content)
+        # Should NOT insert blank lines before inline bold
+        assert "\n\n- Designed" not in result
+        assert "- Built **multi-agent CRM automation**" in result
+
+    def test_newline_before_lowercase_bold(self):
+        """Newline followed by **lowercase text should be joined to previous line."""
+        broken = (
+            "**Role — Company** *Dates*\n"
+            "- deliver\n"
+            "**high-quality data** for workflows."
+        )
+        result = validate_and_fix("experience", broken)
+        assert "deliver **high-quality data**" in result
+
 
 class TestSkillsFormatting:
     def test_adds_blank_line_between_categories(self):
