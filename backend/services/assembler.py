@@ -6,6 +6,7 @@ def assemble_resume(
     modified_sections: dict[str, str],
     modified_experience_entries: dict[str, str] | None = None,
     section_order: list[str] | None = None,
+    excluded_entries: set[str] | None = None,
 ) -> str:
     """Reconstruct full resume markdown from original + modifications.
 
@@ -52,14 +53,18 @@ def assemble_resume(
 
         if key in modified_sections:
             parts.append(modified_sections[key])
-        elif isinstance(original, dict) and "_entries" in original and modified_experience_entries:
+        elif isinstance(original, dict) and "_entries" in original:
             entry_parts = []
             for entry in original["_entries"]:
-                if entry["key"] in modified_experience_entries:
+                # Skip excluded entries
+                if excluded_entries and _entry_matches_exclusion(entry["key"], excluded_entries):
+                    continue
+                if modified_experience_entries and entry["key"] in modified_experience_entries:
                     entry_parts.append(modified_experience_entries[entry["key"]])
                 else:
                     entry_parts.append(entry["content"])
-            parts.append("\n\n".join(entry_parts))
+            if entry_parts:
+                parts.append("\n\n".join(entry_parts))
         elif isinstance(original, dict) and "_full" in original:
             parts.append(original["_full"])
         else:
@@ -69,3 +74,11 @@ def assemble_resume(
             parts.append("\n---")
 
     return "\n".join(parts) + "\n"
+
+
+def _entry_matches_exclusion(key: str, excluded: set[str]) -> bool:
+    """Check if an entry key matches any exclusion (case-insensitive, substring)."""
+    for ex in excluded:
+        if ex.lower() in key.lower() or key.lower() in ex.lower():
+            return True
+    return False

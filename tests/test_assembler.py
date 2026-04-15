@@ -87,3 +87,30 @@ class TestAssembleWithSectionOrder:
         summary_pos = output.index("# Summary")
         skills_pos = output.index("# Skills")
         assert exp_pos < summary_pos < skills_pos
+
+
+class TestAssembleWithExcludedEntries:
+    def test_exclude_experience_entry(self, sample_resume):
+        parsed = parse_resume(sample_resume)
+        output = assemble_resume(parsed, {}, excluded_entries={"StartupXYZ"})
+        assert "Senior Engineer — Acme Corp" in output
+        assert "StartupXYZ" not in output
+
+    def test_exclude_project_entry(self, sample_resume):
+        parsed = parse_resume(sample_resume)
+        output = assemble_resume(parsed, {}, excluded_entries={"CloudDash"})
+        assert "DataFlow" in output
+        assert "CloudDash" not in output
+
+    def test_exclude_multiple_entries(self, sample_resume):
+        parsed = parse_resume(sample_resume)
+        output = assemble_resume(parsed, {}, excluded_entries={"StartupXYZ", "CloudDash"})
+        assert "Acme Corp" in output
+        assert "StartupXYZ" not in output
+        assert "CloudDash" not in output
+
+    def test_no_exclusion_preserves_all(self, sample_resume):
+        parsed = parse_resume(sample_resume)
+        output = assemble_resume(parsed, {}, excluded_entries=set())
+        assert "Acme Corp" in output
+        assert "StartupXYZ" in output
