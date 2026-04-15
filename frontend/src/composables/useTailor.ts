@@ -99,12 +99,22 @@ export function useTailor() {
       case 'plan': {
         const plan = data.tool_calls as any[]
         const analysis = data.analysis as Record<string, unknown> | undefined
+        const scoring = data.scoring as any | undefined
         const statuses: Record<string, 'pending' | 'running' | 'done'> = {}
         for (const call of plan || []) {
           const key = call.entry ? `${call.agent}:${call.entry}` : call.agent
-          statuses[key] = call.action === 'keep' ? 'done' : 'pending'
+          if (call.action === 'keep' || call.action === 'include') {
+            statuses[key] = 'done'
+          } else if (call.action === 'exclude') {
+            // Don't show excluded entries in status
+          } else {
+            statuses[key] = 'pending'
+          }
         }
         const updates: Partial<typeof job> = { tailoringPlan: plan, agentStatuses: statuses }
+        if (scoring) {
+          updates.scoring = scoring
+        }
         // Use AI-extracted job info if available and user hasn't manually set them
         if (analysis) {
           const aiTitle = analysis.job_title as string
@@ -137,6 +147,9 @@ export function useTailor() {
           tailoringStatus: 'done',
           result: data.markdown as string,
         })
+        break
+      case 'ats_score':
+        store.updateJob(jobId, { atsResult: data as any })
         break
       case 'error':
         store.updateJob(jobId, {
