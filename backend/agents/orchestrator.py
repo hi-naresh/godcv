@@ -59,8 +59,21 @@ IMPORTANT RULES:
 AVAILABLE AGENTS AND ACTIONS:
 - agent: "summary", action: "rewrite" -- rewrite the summary to match job requirements
 - agent: "skills", action: "reorder" -- reorder and emphasize relevant skills (with promote/demote lists)
-- agent: "experience", entry: "<CompanyKey>", action: "rewrite"|"keep" -- per job entry
-- agent: "projects", action: "reorder" -- reorder projects by relevance to job
+- agent: "experience", entry: "<CompanyKey>", action: "rewrite"|"include"|"exclude" -- per job entry
+  - "include": keep this entry as-is (relevant, no changes needed)
+  - "exclude": drop this entry entirely (not relevant for this role)
+  - "rewrite": include but rewrite bullets to better match the JD
+- agent: "projects", entry: "<ProjectKey>", action: "rewrite"|"include"|"exclude" -- per project entry
+  - Same include/exclude/rewrite logic as experience
+  - Prioritize projects whose tech stack matches the JD
+
+ENTRY SELECTION RULES:
+- The resume may contain MORE entries than can fit on a single page
+- You MUST provide an action for EVERY experience and project entry (include, exclude, or rewrite)
+- Select enough entries to fill a 1-page resume without overflow
+- For a 1-page resume: typically 2-3 experience entries and 2-3 projects
+- Prefer entries most relevant to the job description
+- When excluding, drop the least relevant entries first
 {insights_context}{seniority_context}
 RESUME:
 {resume_markdown}
@@ -81,7 +94,7 @@ Respond with a JSON object:
     "matched_strengths": ["<short phrase>"]
   }},
   "tool_calls": [
-    {{"agent": "<name>", "action": "<rewrite|reorder|keep>", "entry": "<for experience>", "instructions": "<1-2 sentences>", "promote": ["<items>"], "demote": ["<items>"]}}
+    {{"agent": "<name>", "action": "<rewrite|reorder|include|exclude|keep>", "entry": "<for experience/projects>", "instructions": "<1-2 sentences>", "promote": ["<items>"], "demote": ["<items>"]}}
   ],
   "sections_unchanged": ["<section names>"],
   "section_order": {order_example}
