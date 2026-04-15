@@ -81,6 +81,23 @@ RESUME:
 JOB DESCRIPTION:
 {job_description}
 
+SCORING: You MUST also evaluate the resume against the JD and provide scores.
+
+For "before" scores — evaluate the ORIGINAL resume as-is:
+- keyword_match: percentage of important JD keywords/phrases found in the resume (0-100)
+- skills_coverage: percentage of JD required skills present in the Skills section (0-100)
+- experience_fit: one sentence describing how experience level matches (years, seniority, domain)
+- overall_fit: aggregated score considering all factors (0-100)
+
+For "predicted_after" scores — predict what the tailored resume will score after your planned modifications.
+
+For "gap_suggestions" — list specific weaknesses the candidate has for THIS job:
+- Missing skills the JD requires but resume doesn't have at all
+- Experience gaps (years, seniority level, domain mismatch)
+- Missing project types or technologies
+- Soft skill gaps (leadership, mentoring, etc.)
+- Be brutally honest — these help the user understand what tailoring alone cannot fix
+
 CRITICAL: Keep your response CONCISE. Instructions must be 1-2 short sentences max. Key requirements and matched strengths should be short phrases, not full sentences.
 
 Respond with a JSON object:
@@ -97,7 +114,22 @@ Respond with a JSON object:
     {{"agent": "<name>", "action": "<rewrite|reorder|include|exclude|keep>", "entry": "<for experience/projects>", "instructions": "<1-2 sentences>", "promote": ["<items>"], "demote": ["<items>"]}}
   ],
   "sections_unchanged": ["<section names>"],
-  "section_order": {order_example}
+  "section_order": {order_example},
+  "scoring": {{
+    "before": {{
+      "keyword_match": "<0-100>",
+      "skills_coverage": "<0-100>",
+      "experience_fit": "<one sentence>",
+      "overall_fit": "<0-100>"
+    }},
+    "predicted_after": {{
+      "keyword_match": "<0-100>",
+      "skills_coverage": "<0-100>",
+      "experience_fit": "<one sentence>",
+      "overall_fit": "<0-100>"
+    }},
+    "gap_suggestions": ["<specific weakness 1>", "<specific weakness 2>"]
+  }}
 }}"""
 
         return await self.gemini.generate_json(prompt)
