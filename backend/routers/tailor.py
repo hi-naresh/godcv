@@ -10,6 +10,7 @@ from backend.services.gemini import GeminiClient
 from backend.agents.orchestrator import OrchestratorAgent
 from backend.agents.bus import AgentBus
 from backend.agents.profile_learner import ProfileLearnerAgent
+from backend.agents.ats_scorer import ATSScorerAgent
 from backend.config import GEMINI_API_KEY
 
 logger = logging.getLogger("godcv.tailor")
@@ -69,6 +70,7 @@ async def tailor_resume(request: TailorRequest):
                 "analysis": plan.get("analysis", {}),
                 "tool_calls": tool_calls,
                 "sections_unchanged": sections_unchanged,
+                "scoring": plan.get("scoring"),
             })
 
             # Phase 2: Parse resume
@@ -113,6 +115,16 @@ async def tailor_resume(request: TailorRequest):
                 "sections_modified": len(sections_modified),
                 "sections_kept": len(sections_unchanged),
             })
+
+            # Phase 4.5: ATS Scoring
+            try:
+                yield _sse_event("status", {"phase": "ats_scoring", "message": "Running ATS analysis..."})
+                ats_agent = ATSScorerAgent(gemini)
+                ats_result = await ats_agent.score(tailored_md, job_description)
+                yield _sse_event("ats_score", ats_result)
+            except Exception as e:
+                logger.error("ATS scoring failed: %s", e)
+                yield _sse_event("ats_score", {"ats_score": 0, "breakdown": {}, "brutal_verdict": f"ATS scoring failed: {str(e)}"})
 
             # Phase 5: Learn (don't block response)
             if profile_id:
