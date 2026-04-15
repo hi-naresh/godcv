@@ -3,10 +3,11 @@ import { computed, onMounted } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useProfile } from '../composables/useProfile'
 import { useTailor } from '../composables/useTailor'
-import MarkdownEditor from '../components/MarkdownEditor.vue'
 import ResumePreview from '../components/ResumePreview.vue'
+import SectionEditor from '../components/SectionEditor.vue'
 import JobCard from '../components/JobCard.vue'
 import TabBar from '../components/TabBar.vue'
+import ScorePanel from '../components/ScorePanel.vue'
 
 const props = defineProps<{ apiKey?: string }>()
 
@@ -26,43 +27,33 @@ onMounted(async () => {
 const jobList = computed(() => [...store.jobs.values()])
 const activeJob = computed(() => store.activeJobId ? store.jobs.get(store.activeJobId) ?? null : null)
 
-// Editor shows: job result (editable) when a job tab is active, master resume on "Original"
-const editorMarkdown = computed({
-  get: () => {
-    if (!store.activeJobId) return store.markdown
-    return activeJob.value?.result ?? store.markdown
-  },
-  set: (val: string) => {
-    if (!store.activeJobId) {
-      store.markdown = val
-    } else if (activeJob.value?.result) {
-      // User is editing the tailored result
-      store.updateJob(store.activeJobId, { result: val })
-    } else {
-      store.markdown = val
-    }
-  },
+const activeMarkdown = computed(() => {
+  if (!store.activeJobId) return store.markdown
+  return activeJob.value?.result ?? store.markdown
 })
 
-const editorLabel = computed(() => {
-  if (!store.activeJobId) return 'Master Resume'
-  if (activeJob.value?.result) return `Tailored CV — ${activeJob.value.title || activeJob.value.id}`
-  return 'Master Resume (not yet tailored)'
-})
-
-// Preview uses same markdown as editor
-const previewMarkdown = computed(() => editorMarkdown.value)
-
-// Agent statuses for inline indicators on the active job
-const activeAgentStatuses = computed(() => {
-  if (!activeJob.value || activeJob.value.tailoringStatus !== 'running') return undefined
-  return activeJob.value.agentStatuses
-})
+function onSectionUpdate(md: string) {
+  if (!store.activeJobId) {
+    store.markdown = md
+  } else if (activeJob.value?.result) {
+    store.updateJob(store.activeJobId, { result: md })
+  } else {
+    store.markdown = md
+  }
+}
 
 const currentPageMode = computed(() => {
   if (!store.activeJobId) return store.pageMode
   return activeJob.value?.pageMode ?? 'single'
 })
+
+const activeAgentStatuses = computed(() => {
+  if (!activeJob.value || activeJob.value.tailoringStatus !== 'running') return undefined
+  return activeJob.value.agentStatuses
+})
+
+const activeScoring = computed(() => activeJob.value?.scoring ?? null)
+const activeAtsResult = computed(() => activeJob.value?.atsResult ?? null)
 
 const hasJobs = computed(() => store.jobs.size > 0)
 const anyRunning = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running'))
@@ -72,13 +63,8 @@ const canTailor = computed(() =>
   store.markdown.trim()
 )
 
-function addJob() {
-  store.addJob()
-}
-
-function removeJob(id: string) {
-  store.removeJob(id)
-}
+function addJob() { store.addJob() }
+function removeJob(id: string) { store.removeJob(id) }
 
 function tailorAll() {
   if (!store.markdown.trim()) return alert('Load a resume first.')
@@ -93,13 +79,9 @@ function exportPdf() { window.print() }
 
 <template>
   <div class="editor-layout">
-    <!-- LEFT PANEL -->
+    <!-- LEFT PANEL: Jobs Only -->
     <aside class="left-panel">
       <section class="panel-section">
-        <MarkdownEditor v-model="editorMarkdown" :label="editorLabel" />
-      </section>
-
-      <section class="panel-section jobs-section">
         <div class="section-header">
           <h3>Jobs</h3>
           <button class="add-job-btn" @click="addJob">+ Add Job</button>
@@ -145,27 +127,47 @@ function exportPdf() { window.print() }
         <button class="export-btn" @click="exportPdf">Print / PDF</button>
       </div>
 
-      <!-- Error banner for active job -->
+      <!-- Error banner -->
       <div v-if="activeJob && activeJob.tailoringStatus === 'error'" class="error-banner">
         <strong>Tailoring failed:</strong> {{ activeJob.error || 'Unknown error' }}
       </div>
 
+      <!-- Empty state -->
       <div v-if="!store.markdown" class="empty-preview">
         <div class="empty-preview-content">
           <div class="empty-preview-icon">&#128196;</div>
-          <p>Load a resume to see preview</p>
-          <small>Paste markdown in the editor or drag a .md file</small>
+          <p>Set up your resume in the Profile tab</p>
+          <small>Add your experiences, projects, and skills there first</small>
         </div>
       </div>
-      <ResumePreview
-        v-else
-        :markdown="previewMarkdown"
-        :pageMode="currentPageMode"
-        :agentStatuses="activeAgentStatuses"
+
+      <!-- Main content: Section Cards + Preview side by side -->
+      <div v-else class="content-area">
+        <div class="sections-col">
+          <SectionEditor
+            :markdown="activeMarkdown"
+            @update:markdown="onSectionUpdate"
+          />
+        </div>
+        <div class="preview-col">
+          <ResumePreview
+            :markdown="activeMarkdown"
+            :pageMode="currentPageMode"
+            :agentStatuses="activeAgentStatuses"
+          />
+        </div>
+      </div>
+
+      <!-- Score Panel -->
+      <ScorePanel
+        v-if="activeJob"
+        :scoring="activeScoring"
+        :atsResult="activeAtsResult"
       />
 
+      <!-- Step guide for new users -->
       <div v-if="!store.markdown && !hasJobs" class="step-guide">
-        <div class="step"><span class="step-num">1</span> Load your resume</div>
+        <div class="step"><span class="step-num">1</span> Set up resume in Profile</div>
         <div class="step-arrow">&rarr;</div>
         <div class="step"><span class="step-num">2</span> Add job descriptions</div>
         <div class="step-arrow">&rarr;</div>
@@ -178,11 +180,11 @@ function exportPdf() { window.print() }
 <style scoped>
 .editor-layout {
   display: flex; align-items: flex-start; justify-content: center;
-  gap: 18px; padding: 0 18px; max-width: 1400px; margin: 0 auto;
+  gap: 14px; padding: 0 14px; max-width: 1600px; margin: 0 auto;
 }
 
 .left-panel {
-  width: min(440px, 34vw); min-width: 320px;
+  width: min(340px, 26vw); min-width: 280px;
   position: sticky; top: 60px; align-self: flex-start;
   display: flex; flex-direction: column; gap: 12px;
   max-height: calc(100vh - 80px); overflow-y: auto;
@@ -220,7 +222,7 @@ function exportPdf() { window.print() }
 .tailor-all-btn:not(:disabled):hover { opacity: 0.9; }
 
 .right-panel {
-  flex: 1; max-width: 240mm;
+  flex: 1; min-width: 0;
   display: flex; flex-direction: column; gap: 10px;
 }
 
@@ -242,7 +244,7 @@ function exportPdf() { window.print() }
 .error-banner strong { font-weight: 700; }
 
 .empty-preview {
-  width: var(--page-w); min-height: 300px;
+  min-height: 300px;
   background: #fff; border: 2px dashed #d9d9d9; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
 }
@@ -250,6 +252,18 @@ function exportPdf() { window.print() }
 .empty-preview-icon { font-size: 3rem; margin-bottom: 8px; }
 .empty-preview-content p { margin: 0; font-weight: 600; }
 .empty-preview-content small { font-size: 0.8rem; }
+
+.content-area {
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.sections-col {
+  width: min(420px, 35%); min-width: 300px;
+  max-height: calc(100vh - 140px); overflow-y: auto;
+}
+.preview-col {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+}
 
 .step-guide {
   display: flex; align-items: center; justify-content: center;
@@ -266,6 +280,11 @@ function exportPdf() { window.print() }
   display: flex; align-items: center; justify-content: center;
 }
 .step-arrow { color: #ccc; font-size: 1.2rem; }
+
+@media (max-width: 1100px) {
+  .content-area { flex-direction: column; }
+  .sections-col { width: 100%; min-width: unset; max-height: unset; }
+}
 
 @media (max-width: 900px) {
   .editor-layout { flex-direction: column; align-items: stretch; }
