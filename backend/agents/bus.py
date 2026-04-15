@@ -29,15 +29,25 @@ class AgentBus:
 
         modified_sections: dict[str, str] = {}
         modified_entries: dict[str, str] = {}
+        excluded_entries: set[str] = set()
 
         parallel_calls = []
         experience_calls = []
 
         for call in tool_calls:
-            if call.get("action") == "keep":
+            action = call.get("action", "")
+            if action == "keep" or action == "include":
+                continue
+            if action == "exclude":
+                entry_key = call.get("entry", "")
+                if entry_key:
+                    excluded_entries.add(entry_key)
                 continue
             if call["agent"] == "experience":
                 experience_calls.append(call)
+            elif call["agent"] == "projects" and call.get("entry"):
+                # Per-entry project rewrite — handled separately below
+                pass
             else:
                 parallel_calls.append(call)
 
@@ -108,9 +118,50 @@ class AgentBus:
                 entry_key = name.split(":", 1)[1] if ":" in name else name
                 modified_entries[entry_key] = content
 
+        # Run project entries in parallel (rewrite only)
+        project_calls = [c for c in tool_calls if c["agent"] == "projects" and c.get("action") == "rewrite" and c.get("entry")]
+        if project_calls:
+            proj_section = sections.get("Projects", {})
+            proj_entries = proj_section.get("_entries", []) if isinstance(proj_section, dict) else []
+            proj_entry_map = {e["key"]: e for e in proj_entries}
+
+            proj_tasks = []
+            proj_agent = self.agents["projects"]
+            for call in project_calls:
+                entry_key = call.get("entry", "")
+                entry = proj_entry_map.get(entry_key)
+                if not entry:
+                    for k, v in proj_entry_map.items():
+                        if entry_key.lower() in k.lower() or k.lower() in entry_key.lower():
+                            entry = v
+                            entry_key = k
+                            break
+                if not entry:
+                    continue
+
+                proj_tasks.append(
+                    _run_single_agent(
+                        proj_agent,
+                        f"projects:{entry_key}",
+                        entry["content"],
+                        call,
+                        job_description,
+                    )
+                )
+
+            results = await asyncio.gather(*proj_tasks, return_exceptions=True)
+            for r in results:
+                if isinstance(r, Exception):
+                    self.log.error("Projects agent failed: %s", r)
+                    continue
+                name, content = r
+                entry_key = name.split(":", 1)[1] if ":" in name else name
+                modified_entries[entry_key] = content
+
         return {
             "modified_sections": modified_sections,
             "modified_entries": modified_entries,
+            "excluded_entries": excluded_entries,
         }
 
 
