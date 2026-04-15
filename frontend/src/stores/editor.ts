@@ -11,6 +11,33 @@ export interface ToolCall {
   demote?: string[]
 }
 
+export interface JobScoring {
+  before: {
+    keyword_match: number
+    skills_coverage: number
+    experience_fit: string
+    overall_fit: number
+  }
+  predicted_after: {
+    keyword_match: number
+    skills_coverage: number
+    experience_fit: string
+    overall_fit: number
+  }
+  gap_suggestions: string[]
+}
+
+export interface ATSBreakdownItem {
+  score: number
+  detail: string
+}
+
+export interface ATSResult {
+  ats_score: number
+  breakdown: Record<string, ATSBreakdownItem>
+  brutal_verdict: string
+}
+
 export interface Profile {
   id: number
   name: string
@@ -30,6 +57,8 @@ export interface JobState {
   result: string | null
   error: string | null
   pageMode: 'single' | 'multi'
+  scoring: JobScoring | null
+  atsResult: ATSResult | null
 }
 
 let _jobCounter = 0
@@ -54,6 +83,8 @@ export const useEditorStore = defineStore('editor', () => {
       result: null,
       error: null,
       pageMode: 'single',
+      scoring: null,
+      atsResult: null,
     })
     jobs.value = new Map(jobs.value)
     return id
@@ -81,6 +112,8 @@ export const useEditorStore = defineStore('editor', () => {
       agentStatuses: {},
       result: null,
       error: null,
+      scoring: null,
+      atsResult: null,
     })
   }
 
