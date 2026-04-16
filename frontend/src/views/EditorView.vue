@@ -54,6 +54,7 @@ const activeAgentStatuses = computed(() => {
 
 const activeScoring = computed(() => activeJob.value?.scoring ?? null)
 const activeAtsResult = computed(() => activeJob.value?.atsResult ?? null)
+const activeSuggestions = computed(() => activeJob.value?.suggestions ?? [])
 
 const hasJobs = computed(() => store.jobs.size > 0)
 const anyRunning = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running'))
@@ -75,6 +76,55 @@ function tailorAll() {
 }
 
 function exportPdf() { window.print() }
+
+function acceptSuggestion(sugId: string) {
+  const job = activeJob.value
+  if (!job || !job.result) return
+  const sug = job.suggestions.find(s => s.id === sugId)
+  if (!sug) return
+
+  // Merge content into the result markdown
+  let md = job.result
+  if (sug.section === 'Skills' && sug.type === 'skill') {
+    // Append skills to the Skills section — find last non-empty line in Skills
+    const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
+    if (skillsMatch) {
+      const before = skillsMatch[1]
+      const content = skillsMatch[2].trimEnd()
+      const after = skillsMatch[3]
+      md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + after)
+    }
+  } else if (sug.type === 'bullet') {
+    // Append bullet to the matching entry
+    const parts = sug.section.split(':')
+    const entryKey = parts[1] || ''
+    if (entryKey) {
+      // Find the entry by its bold title containing the key
+      const keyEscaped = entryKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const entryRegex = new RegExp(
+        `(\\*\\*[^*]*${keyEscaped}[^*]*\\*\\*[\\s\\S]*?)(\\n(?=\\n\\*\\*|\\n---|\\n#|$))`,
+        'i'
+      )
+      md = md.replace(entryRegex, (match, entryContent, trailing) => {
+        return entryContent + '\n' + sug.content + trailing
+      })
+    }
+  }
+
+  // Update result and remove suggestion
+  store.updateJob(job.id, {
+    result: md,
+    suggestions: job.suggestions.filter(s => s.id !== sugId),
+  })
+}
+
+function denySuggestion(sugId: string) {
+  const job = activeJob.value
+  if (!job) return
+  store.updateJob(job.id, {
+    suggestions: job.suggestions.filter(s => s.id !== sugId),
+  })
+}
 </script>
 
 <template>
@@ -112,9 +162,18 @@ function exportPdf() { window.print() }
           {{ anyRunning ? 'Tailoring...' : 'Tailor All' }}
         </button>
       </section>
+
+      <!-- Section Editor in left panel -->
+      <section v-if="store.markdown" class="panel-section sections-panel">
+        <h3 class="sections-title">Edit Sections</h3>
+        <SectionEditor
+          :markdown="activeMarkdown"
+          @update:markdown="onSectionUpdate"
+        />
+      </section>
     </aside>
 
-    <!-- RIGHT PANEL -->
+    <!-- RIGHT PANEL: Preview Only -->
     <div class="right-panel">
       <TabBar
         v-if="hasJobs"
@@ -141,21 +200,15 @@ function exportPdf() { window.print() }
         </div>
       </div>
 
-      <!-- Main content: Section Cards + Preview side by side -->
-      <div v-else class="content-area">
-        <div class="sections-col">
-          <SectionEditor
-            :markdown="activeMarkdown"
-            @update:markdown="onSectionUpdate"
-          />
-        </div>
-        <div class="preview-col">
-          <ResumePreview
-            :markdown="activeMarkdown"
-            :pageMode="currentPageMode"
-            :agentStatuses="activeAgentStatuses"
-          />
-        </div>
+      <div v-else class="preview-area">
+        <ResumePreview
+          :markdown="activeMarkdown"
+          :pageMode="currentPageMode"
+          :agentStatuses="activeAgentStatuses"
+          :suggestions="activeSuggestions"
+          @accept-suggestion="acceptSuggestion"
+          @deny-suggestion="denySuggestion"
+        />
       </div>
 
       <!-- Score Panel -->
@@ -184,7 +237,7 @@ function exportPdf() { window.print() }
 }
 
 .left-panel {
-  width: min(340px, 26vw); min-width: 280px;
+  width: min(440px, 34vw); min-width: 320px;
   position: sticky; top: 60px; align-self: flex-start;
   display: flex; flex-direction: column; gap: 12px;
   max-height: calc(100vh - 80px); overflow-y: auto;
@@ -222,7 +275,7 @@ function exportPdf() { window.print() }
 .tailor-all-btn:not(:disabled):hover { opacity: 0.9; }
 
 .right-panel {
-  flex: 1; min-width: 0;
+  flex: 1; max-width: 240mm;
   display: flex; flex-direction: column; gap: 10px;
 }
 
@@ -253,16 +306,14 @@ function exportPdf() { window.print() }
 .empty-preview-content p { margin: 0; font-weight: 600; }
 .empty-preview-content small { font-size: 0.8rem; }
 
-.content-area {
-  display: flex; gap: 14px; align-items: flex-start;
+.sections-panel {
+  padding: 12px;
 }
-.sections-col {
-  width: min(420px, 35%); min-width: 300px;
-  max-height: calc(100vh - 140px); overflow-y: auto;
+.sections-title {
+  margin: 0 0 8px; font-size: 0.9rem; color: #555;
 }
-.preview-col {
-  flex: 1;
-  display: flex; flex-direction: column; align-items: center;
+.preview-area {
+  display: flex; justify-content: center;
 }
 
 .step-guide {
@@ -280,11 +331,6 @@ function exportPdf() { window.print() }
   display: flex; align-items: center; justify-content: center;
 }
 .step-arrow { color: #ccc; font-size: 1.2rem; }
-
-@media (max-width: 1100px) {
-  .content-area { flex-direction: column; }
-  .sections-col { width: 100%; min-width: unset; max-height: unset; }
-}
 
 @media (max-width: 900px) {
   .editor-layout { flex-direction: column; align-items: stretch; }
