@@ -11,19 +11,16 @@ export interface ToolCall {
   demote?: string[]
 }
 
+export interface ScoreMetrics {
+  keyword_match: number
+  skills_coverage: number
+  experience_fit: string
+  overall_fit: number
+}
+
 export interface JobScoring {
-  before: {
-    keyword_match: number
-    skills_coverage: number
-    experience_fit: string
-    overall_fit: number
-  }
-  predicted_after: {
-    keyword_match: number
-    skills_coverage: number
-    experience_fit: string
-    overall_fit: number
-  }
+  before: ScoreMetrics
+  after: ScoreMetrics | null
   gap_suggestions: string[]
 }
 
@@ -36,6 +33,14 @@ export interface ATSResult {
   ats_score: number
   breakdown: Record<string, ATSBreakdownItem>
   brutal_verdict: string
+}
+
+export interface Suggestion {
+  id: string
+  section: string
+  type: 'skill' | 'bullet'
+  content: string
+  context: string
 }
 
 export interface Profile {
@@ -59,6 +64,7 @@ export interface JobState {
   pageMode: 'single' | 'multi'
   scoring: JobScoring | null
   atsResult: ATSResult | null
+  suggestions: Suggestion[]
 }
 
 let _jobCounter = 0
@@ -85,6 +91,7 @@ export const useEditorStore = defineStore('editor', () => {
       pageMode: 'single',
       scoring: null,
       atsResult: null,
+      suggestions: [],
     })
     jobs.value = new Map(jobs.value)
     return id
@@ -114,6 +121,7 @@ export const useEditorStore = defineStore('editor', () => {
       error: null,
       scoring: null,
       atsResult: null,
+      suggestions: [],
     })
   }
 
