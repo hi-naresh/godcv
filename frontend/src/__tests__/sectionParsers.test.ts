@@ -4,6 +4,16 @@ import {
   isMultiEntryType,
   parseExperienceEntries,
   assembleExperienceEntries,
+  parseEducationEntries,
+  assembleEducationEntries,
+  parseProjectEntries,
+  assembleProjectEntries,
+  parseSkillCategories,
+  assembleSkillCategories,
+  parseGenericEntries,
+  assembleGenericEntries,
+  parseSectionEntries,
+  assembleSectionContent,
   type SectionType,
   type EntryData,
 } from '../utils/sectionParsers'
@@ -43,8 +53,11 @@ describe('isMultiEntryType', () => {
     expect(isMultiEntryType('projects')).toBe(true)
   })
 
-  it('returns false for skills and generic', () => {
-    expect(isMultiEntryType('skills')).toBe(false)
+  it('returns true for skills', () => {
+    expect(isMultiEntryType('skills')).toBe(true)
+  })
+
+  it('returns false for generic', () => {
     expect(isMultiEntryType('generic')).toBe(false)
   })
 })
@@ -193,5 +206,336 @@ describe('assembleExperienceEntries', () => {
       '**Role A — Company A** *Jan 2024 – Present*\n- Task A.\n\n' +
       '**Role B — Company B** *Jan 2023 – Dec 2023*\n- Task B.'
     )
+  })
+})
+
+describe('parseEducationEntries', () => {
+  it('parses a standard education entry with degree, university, and dates', () => {
+    const content =
+      '**M.Sc. in Artificial Intelligence - Brunel University London, UK.** *Jan 2025 – Jan 2026*  \n' +
+      '***Coursework**:* Predictive Analytics; Neural Networks.'
+
+    const entries = parseEducationEntries(content)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].degree).toBe('M.Sc. in Artificial Intelligence')
+    expect(entries[0].university).toBe('Brunel University London, UK.')
+    expect(entries[0].startDate).toBe('Jan 2025')
+    expect(entries[0].endDate).toBe('Jan 2026')
+    expect(entries[0].content).toContain('Coursework')
+  })
+
+  it('parses multiple education entries', () => {
+    const content =
+      '**M.Sc. in Artificial Intelligence - Brunel University London, UK.** *Jan 2025 – Jan 2026*\n' +
+      '***Coursework**:* Predictive Analytics.\n' +
+      '\n' +
+      '**B.Tech in Computer Science – Some University** *Aug 2019 – May 2023*\n' +
+      '- GPA: 3.8/4.0'
+
+    const entries = parseEducationEntries(content)
+    expect(entries).toHaveLength(2)
+    expect(entries[0].degree).toBe('M.Sc. in Artificial Intelligence')
+    expect(entries[0].university).toBe('Brunel University London, UK.')
+    expect(entries[1].degree).toBe('B.Tech in Computer Science')
+    expect(entries[1].university).toBe('Some University')
+    expect(entries[1].startDate).toBe('Aug 2019')
+    expect(entries[1].endDate).toBe('May 2023')
+  })
+
+  it('handles entry with no dates', () => {
+    const content = '**B.A. in English - Oxford University**\n- First class honours.'
+
+    const entries = parseEducationEntries(content)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].degree).toBe('B.A. in English')
+    expect(entries[0].university).toBe('Oxford University')
+    expect(entries[0].startDate).toBeUndefined()
+    expect(entries[0].endDate).toBeUndefined()
+  })
+
+  it('strips trailing double spaces from header lines', () => {
+    const content = '**M.Sc. in AI - Brunel University** *Jan 2025 – Jan 2026*  '
+
+    const entries = parseEducationEntries(content)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].degree).toBe('M.Sc. in AI')
+    expect(entries[0].university).toBe('Brunel University')
+  })
+})
+
+describe('assembleEducationEntries', () => {
+  it('assembles a standard education entry', () => {
+    const entries: EntryData[] = [
+      {
+        key: '1',
+        header: '',
+        content: '***Coursework**:* Predictive Analytics.',
+        degree: 'M.Sc. in AI',
+        university: 'Brunel University',
+        startDate: 'Jan 2025',
+        endDate: 'Jan 2026',
+      },
+    ]
+
+    const result = assembleEducationEntries(entries)
+    expect(result).toBe(
+      '**M.Sc. in AI - Brunel University** *Jan 2025 – Jan 2026*\n***Coursework**:* Predictive Analytics.'
+    )
+  })
+
+  it('omits dates when both are empty', () => {
+    const entries: EntryData[] = [
+      {
+        key: '1',
+        header: '',
+        content: '',
+        degree: 'B.A. in English',
+        university: 'Oxford',
+      },
+    ]
+
+    const result = assembleEducationEntries(entries)
+    expect(result).toBe('**B.A. in English - Oxford**')
+  })
+})
+
+describe('parseProjectEntries', () => {
+  it('parses a project with link and tech stack', () => {
+    const content =
+      '**[Luxury Concierge LLM Agent](https://kaiconcierge.ai)** at BotWot **| Stack -** Python, LangChain, FastAPI\n' +
+      '- Multi-agent orchestration system.'
+
+    const entries = parseProjectEntries(content)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].name).toBe('Luxury Concierge LLM Agent')
+    expect(entries[0].url).toBe('https://kaiconcierge.ai')
+    expect(entries[0].techStack).toEqual(['Python', 'LangChain', 'FastAPI'])
+    expect(entries[0].content).toContain('- Multi-agent orchestration system.')
+  })
+
+  it('parses a project without link', () => {
+    const content =
+      '**Framework Benchmark Performance Analysis & Tech-Stack Prediction** at University **| Stack -** Python, R, scikit-learn\n' +
+      '- Built automated data pipeline.'
+
+    const entries = parseProjectEntries(content)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].name).toBe('Framework Benchmark Performance Analysis & Tech-Stack Prediction')
+    expect(entries[0].url).toBeUndefined()
+    expect(entries[0].techStack).toEqual(['Python', 'R', 'scikit-learn'])
+  })
+
+  it('parses simple format with link and no "at Company"', () => {
+    const content = '**[MyProject](https://github.com/me/proj)** | Stack - React, Node.js'
+
+    const entries = parseProjectEntries(content)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].name).toBe('MyProject')
+    expect(entries[0].url).toBe('https://github.com/me/proj')
+    expect(entries[0].techStack).toEqual(['React', 'Node.js'])
+  })
+
+  it('parses multiple project entries', () => {
+    const content =
+      '**[Project A](https://a.com)** **| Stack -** Python, FastAPI\n' +
+      '- Did A.\n' +
+      '\n' +
+      '**Project B** **| Stack -** TypeScript, React\n' +
+      '- Did B.'
+
+    const entries = parseProjectEntries(content)
+    expect(entries).toHaveLength(2)
+    expect(entries[0].name).toBe('Project A')
+    expect(entries[1].name).toBe('Project B')
+    expect(entries[1].url).toBeUndefined()
+  })
+})
+
+describe('assembleProjectEntries', () => {
+  it('assembles a project with URL', () => {
+    const entries: EntryData[] = [
+      {
+        key: '1',
+        header: '',
+        content: '- Multi-agent system.',
+        name: 'Luxury Concierge',
+        url: 'https://kaiconcierge.ai',
+        techStack: ['Python', 'LangChain', 'FastAPI'],
+      },
+    ]
+
+    const result = assembleProjectEntries(entries)
+    expect(result).toBe(
+      '**[Luxury Concierge](https://kaiconcierge.ai)** | Stack - Python, LangChain, FastAPI\n- Multi-agent system.'
+    )
+  })
+
+  it('assembles a project without URL', () => {
+    const entries: EntryData[] = [
+      {
+        key: '1',
+        header: '',
+        content: '- Built pipeline.',
+        name: 'Benchmark Analysis',
+        techStack: ['Python', 'R'],
+      },
+    ]
+
+    const result = assembleProjectEntries(entries)
+    expect(result).toBe(
+      '**Benchmark Analysis** | Stack - Python, R\n- Built pipeline.'
+    )
+  })
+})
+
+describe('parseSkillCategories', () => {
+  it('parses skill categories with trailing periods stripped', () => {
+    const content =
+      '**Data Engineering:** ETL Pipelines, API Integrations, MongoDB, Supabase, VectorDB.\n' +
+      '\n' +
+      '**AI Orchestration:** LangChain, LangGraph, RAG Systems, PyTorch.'
+
+    const entries = parseSkillCategories(content)
+    expect(entries).toHaveLength(2)
+    expect(entries[0].categoryName).toBe('Data Engineering')
+    expect(entries[0].skills).toEqual(['ETL Pipelines', 'API Integrations', 'MongoDB', 'Supabase', 'VectorDB'])
+    expect(entries[1].categoryName).toBe('AI Orchestration')
+    expect(entries[1].skills).toEqual(['LangChain', 'LangGraph', 'RAG Systems', 'PyTorch'])
+  })
+
+  it('handles lines with trailing whitespace (double space for markdown line break)', () => {
+    const content =
+      '**Cloud/Infra:** AWS, Azure, Docker.  \n' +
+      '**Programming:** Python, TypeScript, Go.'
+
+    const entries = parseSkillCategories(content)
+    expect(entries).toHaveLength(2)
+    expect(entries[0].categoryName).toBe('Cloud/Infra')
+    expect(entries[0].skills).toEqual(['AWS', 'Azure', 'Docker'])
+    expect(entries[1].categoryName).toBe('Programming')
+    expect(entries[1].skills).toEqual(['Python', 'TypeScript', 'Go'])
+  })
+
+  it('handles multiline skills block from real resume', () => {
+    const content =
+      '**Data Engineering:** ETL Pipelines, API Integrations, Data Cleaning & Structuring, Airflow, DataHub, MongoDB, Supabase, VectorDB.\n' +
+      '\n' +
+      '**AI Orchestration:** LangChain, LangGraph, RAG Systems, Multi-Agent Workflows, ChatGPT/Claude/Gemini APIs, n8n workflows, Prompt Engineering, PyTorch, Streamlit, TensorFlow, Hugging Face, MLflow, XGBoost, SHAP, Fine-tuning (LoRA/QLoRA/PEFT), Model Compression.  \n' +
+      '**Cloud/Infra:** AWS, Azure, Docker, Kubernetes, Helm, CI/CD, Monitoring (OpenTelemetry, Prometheus/Grafana).  \n' +
+      '**Programming:** Python, TypeScript, Go.'
+
+    const entries = parseSkillCategories(content)
+    expect(entries).toHaveLength(4)
+    expect(entries[0].categoryName).toBe('Data Engineering')
+    expect(entries[1].categoryName).toBe('AI Orchestration')
+    expect(entries[2].categoryName).toBe('Cloud/Infra')
+    expect(entries[3].categoryName).toBe('Programming')
+    expect(entries[3].skills).toEqual(['Python', 'TypeScript', 'Go'])
+  })
+})
+
+describe('assembleSkillCategories', () => {
+  it('assembles with trailing period and double newline between categories', () => {
+    const entries: EntryData[] = [
+      {
+        key: '1',
+        header: '',
+        content: '',
+        categoryName: 'Programming',
+        skills: ['Python', 'TypeScript', 'Go'],
+      },
+      {
+        key: '2',
+        header: '',
+        content: '',
+        categoryName: 'Cloud',
+        skills: ['AWS', 'Azure'],
+      },
+    ]
+
+    const result = assembleSkillCategories(entries)
+    expect(result).toBe(
+      '**Programming:** Python, TypeScript, Go.\n\n**Cloud:** AWS, Azure.'
+    )
+  })
+})
+
+describe('parseSectionEntries', () => {
+  it('dispatches to experience parser', () => {
+    const content = '**Engineer — Acme**  *Jan 2024 – Present*\n- Work.'
+    const entries = parseSectionEntries(content, 'experience')
+    expect(entries).toHaveLength(1)
+    expect(entries[0].role).toBe('Engineer')
+  })
+
+  it('dispatches to education parser', () => {
+    const content = '**M.Sc. in AI - Brunel University** *Jan 2025 – Jan 2026*'
+    const entries = parseSectionEntries(content, 'education')
+    expect(entries).toHaveLength(1)
+    expect(entries[0].degree).toBe('M.Sc. in AI')
+  })
+
+  it('dispatches to projects parser', () => {
+    const content = '**[Proj](https://x.com)** | Stack - Python\n- Did stuff.'
+    const entries = parseSectionEntries(content, 'projects')
+    expect(entries).toHaveLength(1)
+    expect(entries[0].name).toBe('Proj')
+  })
+
+  it('dispatches to skills parser', () => {
+    const content = '**Programming:** Python, TypeScript.'
+    const entries = parseSectionEntries(content, 'skills')
+    expect(entries).toHaveLength(1)
+    expect(entries[0].categoryName).toBe('Programming')
+  })
+
+  it('dispatches to generic parser for unknown types', () => {
+    const content = '**Some Header**\nSome content.'
+    const entries = parseSectionEntries(content, 'generic')
+    expect(entries).toHaveLength(1)
+    expect(entries[0].header).toContain('Some Header')
+  })
+})
+
+describe('assembleSectionContent', () => {
+  it('dispatches to experience assembler', () => {
+    const entries: EntryData[] = [
+      { key: '1', header: '', content: '- Work.', role: 'Eng', company: 'Co', startDate: 'Jan 2024', endDate: 'Present' },
+    ]
+    const result = assembleSectionContent(entries, 'experience')
+    expect(result).toContain('**Eng — Co**')
+  })
+
+  it('dispatches to education assembler', () => {
+    const entries: EntryData[] = [
+      { key: '1', header: '', content: '', degree: 'M.Sc.', university: 'Uni', startDate: 'Jan 2025', endDate: 'Jan 2026' },
+    ]
+    const result = assembleSectionContent(entries, 'education')
+    expect(result).toContain('**M.Sc. - Uni**')
+  })
+
+  it('dispatches to projects assembler', () => {
+    const entries: EntryData[] = [
+      { key: '1', header: '', content: '', name: 'Proj', url: 'https://x.com', techStack: ['Python'] },
+    ]
+    const result = assembleSectionContent(entries, 'projects')
+    expect(result).toContain('**[Proj](https://x.com)**')
+  })
+
+  it('dispatches to skills assembler', () => {
+    const entries: EntryData[] = [
+      { key: '1', header: '', content: '', categoryName: 'Lang', skills: ['Python'] },
+    ]
+    const result = assembleSectionContent(entries, 'skills')
+    expect(result).toBe('**Lang:** Python.')
+  })
+
+  it('dispatches to generic assembler', () => {
+    const entries: EntryData[] = [
+      { key: '1', header: '**Heading**', content: 'Body text.' },
+    ]
+    const result = assembleSectionContent(entries, 'generic')
+    expect(result).toContain('**Heading**')
+    expect(result).toContain('Body text.')
   })
 })
