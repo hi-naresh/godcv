@@ -49,8 +49,16 @@ function injectSuggestion(html: string, sug: Suggestion): string {
     html = html.replace(skillsRegex, (match, h1, content, next) => {
       return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
     })
+  } else if (sug.type === 'project' && sug.section === 'Projects') {
+    // For new project entries: append as a highlighted block before the Projects section ends
+    const projHtml = `<div class="suggestion suggestion-project" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${escaped}${tooltip}</div>`
+    // Find the end of the Projects section (before next h1 or hr)
+    const projRegex = /(<h1>Projects<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
+    html = html.replace(projRegex, (match, h1, content, next) => {
+      return h1 + content + projHtml + next
+    })
   } else {
-    // For bullets: <li> with suggestion class directly (no wrapping span)
+    // For bullets: <li> with suggestion class directly
     const sugLi = `<li class="suggestion" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${escaped}${tooltip}</li>`
     const parts = sug.section.split(':')
     const entryKey = parts[1] || ''

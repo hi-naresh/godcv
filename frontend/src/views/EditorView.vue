@@ -94,6 +94,15 @@ function acceptSuggestion(sugId: string) {
       const after = skillsMatch[3]
       md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + after)
     }
+  } else if (sug.type === 'project' && sug.section === 'Projects') {
+    // Append new project entry at end of Projects section
+    const projMatch = md.match(/(# Projects\n)([\s\S]*?)(\n---|\n# |\n*$)/)
+    if (projMatch) {
+      const before = projMatch[1]
+      const content = projMatch[2].trimEnd()
+      const after = projMatch[3]
+      md = md.replace(projMatch[0], before + content + '\n\n' + sug.content + after)
+    }
   } else if (sug.type === 'bullet') {
     // Append bullet to the matching entry
     const parts = sug.section.split(':')
