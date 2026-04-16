@@ -41,15 +41,17 @@ function injectSuggestion(html: string, sug: Suggestion): string {
   const escaped = sug.content
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const tooltip = `<span class="sug-tooltip"><button class="sug-accept" title="Accept">&#10003;</button><button class="sug-deny" title="Deny">&#10005;</button></span>`
-  const innerContent = sug.type === 'bullet' ? '<li>' + escaped + tooltip + '</li>' : escaped + tooltip
-  const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${innerContent}</span>`
 
   if (sug.section === 'Skills') {
+    // For skills: inline span at end of skills text
+    const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${escaped}${tooltip}</span>`
     const skillsRegex = /(<h1>Skills<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
     html = html.replace(skillsRegex, (match, h1, content, next) => {
       return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
     })
   } else {
+    // For bullets: <li> with suggestion class directly (no wrapping span)
+    const sugLi = `<li class="suggestion" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${escaped}${tooltip}</li>`
     const parts = sug.section.split(':')
     const entryKey = parts[1] || ''
     if (entryKey) {
@@ -59,7 +61,7 @@ function injectSuggestion(html: string, sug: Suggestion): string {
         'i'
       )
       html = html.replace(entryRegex, (match, before, items, close) => {
-        return before + items + sugHtml + close
+        return before + items + sugLi + close
       })
     }
   }
