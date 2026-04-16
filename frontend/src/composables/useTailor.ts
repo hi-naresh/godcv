@@ -99,7 +99,7 @@ export function useTailor() {
       case 'plan': {
         const plan = data.tool_calls as any[]
         const analysis = data.analysis as Record<string, unknown> | undefined
-        const scoring = data.scoring as any | undefined
+        const rawScoring = data.scoring as any | undefined
         const statuses: Record<string, 'pending' | 'running' | 'done'> = {}
         for (const call of plan || []) {
           const key = call.entry ? `${call.agent}:${call.entry}` : call.agent
@@ -112,8 +112,12 @@ export function useTailor() {
           }
         }
         const updates: Partial<typeof job> = { tailoringPlan: plan, agentStatuses: statuses }
-        if (scoring) {
-          updates.scoring = scoring
+        if (rawScoring) {
+          updates.scoring = {
+            before: rawScoring.before,
+            after: null,
+            gap_suggestions: rawScoring.gap_suggestions || [],
+          }
         }
         // Use AI-extracted job info if available and user hasn't manually set them
         if (analysis) {
@@ -147,6 +151,18 @@ export function useTailor() {
           tailoringStatus: 'done',
           result: data.markdown as string,
         })
+        break
+      case 'suggestions':
+        store.updateJob(jobId, {
+          suggestions: (data.items as any[]) || [],
+        })
+        break
+      case 'scoring_after':
+        if (job.scoring) {
+          store.updateJob(jobId, {
+            scoring: { ...job.scoring, after: data as any },
+          })
+        }
         break
       case 'ats_score':
         store.updateJob(jobId, { atsResult: data as any })
