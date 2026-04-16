@@ -11,6 +11,8 @@ from backend.agents.orchestrator import OrchestratorAgent
 from backend.agents.bus import AgentBus
 from backend.agents.profile_learner import ProfileLearnerAgent
 from backend.agents.ats_scorer import ATSScorerAgent
+from backend.agents.resume_scorer import ResumeScorerAgent
+from backend.agents.suggestion_agent import SuggestionAgent
 from backend.config import GEMINI_API_KEY
 
 logger = logging.getLogger("godcv.tailor")
@@ -116,7 +118,28 @@ async def tailor_resume(request: TailorRequest):
                 "sections_kept": len(sections_unchanged),
             })
 
-            # Phase 4.5: ATS Scoring
+            # Phase 4.5: Score the tailored resume (real "after" scores)
+            try:
+                yield _sse_event("status", {"phase": "scoring_after", "message": "Scoring tailored resume..."})
+                scorer = ResumeScorerAgent(gemini)
+                after_scores = await scorer.score(tailored_md, job_description)
+                yield _sse_event("scoring_after", after_scores)
+            except Exception as e:
+                logger.error("After-scoring failed: %s", e)
+
+            # Phase 4.6: Generate content suggestions from gaps
+            gap_suggestions = plan.get("scoring", {}).get("gap_suggestions", [])
+            if gap_suggestions:
+                try:
+                    yield _sse_event("status", {"phase": "suggestions", "message": "Generating content suggestions..."})
+                    sug_agent = SuggestionAgent(gemini)
+                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description)
+                    if suggestions:
+                        yield _sse_event("suggestions", {"items": suggestions})
+                except Exception as e:
+                    logger.error("Suggestion generation failed: %s", e)
+
+            # Phase 4.7: ATS Scoring
             try:
                 yield _sse_event("status", {"phase": "ats_scoring", "message": "Running ATS analysis..."})
                 ats_agent = ATSScorerAgent(gemini)
