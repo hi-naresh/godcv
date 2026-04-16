@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import SectionCard from './SectionCard.vue'
-import type { EntryData } from './SectionCard.vue'
-
-const MULTI_ENTRY_SECTIONS = ['experience', 'projects']
+import {
+  getSectionType,
+  isMultiEntryType,
+  parseSectionEntries,
+  assembleSectionContent,
+  type EntryData,
+  type SectionType,
+} from '../utils/sectionParsers'
 
 const props = defineProps<{ markdown: string }>()
 const emit = defineEmits<{ 'update:markdown': [value: string] }>()
@@ -22,7 +27,7 @@ const fmLineSpacing = ref('1.4')
 // --- Sections ---
 interface SectionState {
   name: string
-  multiEntry: boolean
+  sectionType: SectionType
   content: string
   entries: EntryData[]
 }
@@ -69,35 +74,18 @@ function parseMarkdown(md: string) {
     // Strip separator lines
     content = content.replace(/^\s*---\s*$/gm, '').trim()
 
-    const isMulti = MULTI_ENTRY_SECTIONS.includes(name.toLowerCase())
+    const sectionType = getSectionType(name)
 
-    if (isMulti) {
-      const entries = parseEntries(content)
-      sectionList.push({ name, multiEntry: true, content: '', entries })
+    if (isMultiEntryType(sectionType)) {
+      const entries = parseSectionEntries(content, sectionType)
+      sectionList.push({ name, sectionType, content: '', entries })
     } else {
-      sectionList.push({ name, multiEntry: false, content, entries: [] })
+      sectionList.push({ name, sectionType, content, entries: [] })
     }
   }
 
   sections.value = sectionList
   skipEmit = false
-}
-
-function parseEntries(content: string): EntryData[] {
-  const entries: EntryData[] = []
-  // Split on lines starting with bold markers
-  const parts = content.split(/(?=^\*\*)/m)
-  for (const part of parts) {
-    const trimmed = part.trim()
-    if (!trimmed) continue
-    // First line is the header, rest is content
-    const nlIdx = trimmed.indexOf('\n')
-    const header = nlIdx > -1 ? trimmed.substring(0, nlIdx).trim() : trimmed
-    const body = nlIdx > -1 ? trimmed.substring(nlIdx + 1).trim() : ''
-    const key = `entry-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    entries.push({ key, header, content: body })
-  }
-  return entries
 }
 
 // --- Reassemble markdown from state ---
@@ -120,14 +108,8 @@ function assembleMarkdown(): string {
   const sectionParts: string[] = []
   for (const section of sections.value) {
     let sectionContent = ''
-    if (section.multiEntry) {
-      const entryTexts = section.entries
-        .filter(e => e.header.trim() || e.content.trim())
-        .map(e => {
-          if (e.content.trim()) return `${e.header}\n${e.content}`
-          return e.header
-        })
-      sectionContent = entryTexts.join('\n\n')
+    if (isMultiEntryType(section.sectionType)) {
+      sectionContent = assembleSectionContent(section.entries, section.sectionType)
     } else {
       sectionContent = section.content
     }
@@ -159,7 +141,7 @@ watch(() => props.markdown, (newVal) => {
 function addSection() {
   sections.value.push({
     name: 'New Section',
-    multiEntry: false,
+    sectionType: 'generic' as SectionType,
     content: '',
     entries: [],
   })
@@ -168,6 +150,22 @@ function addSection() {
 
 function removeSection(index: number) {
   sections.value.splice(index, 1)
+  emitUpdate()
+}
+
+function moveSectionUp(index: number) {
+  if (index === 0) return
+  const list = sections.value
+  ;[list[index - 1], list[index]] = [list[index], list[index - 1]]
+  sections.value = [...list]
+  emitUpdate()
+}
+
+function moveSectionDown(index: number) {
+  if (index >= sections.value.length - 1) return
+  const list = sections.value
+  ;[list[index], list[index + 1]] = [list[index + 1], list[index]]
+  sections.value = [...list]
   emitUpdate()
 }
 
@@ -276,12 +274,16 @@ function loadTemplate() {
         v-for="(section, index) in sections"
         :key="section.name + '-' + index"
         :title="section.name"
-        :multiEntry="section.multiEntry"
+        :sectionType="section.sectionType"
         :content="section.content"
         :entries="section.entries"
+        :isFirst="index === 0"
+        :isLast="index === sections.length - 1"
         @update:content="updateSectionContent(index, $event)"
         @update:entries="updateSectionEntries(index, $event)"
         @remove="removeSection(index)"
+        @moveUp="moveSectionUp(index)"
+        @moveDown="moveSectionDown(index)"
       />
 
       <!-- Add Section -->
