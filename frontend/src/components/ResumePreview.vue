@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { useMarkdown } from '../composables/useMarkdown'
+import type { Suggestion } from '../stores/editor'
 
 const props = defineProps<{
   markdown: string
   pageMode: 'single' | 'multi'
   agentStatuses?: Record<string, 'pending' | 'running' | 'done'>
+  suggestions?: Suggestion[]
+}>()
+
+const emit = defineEmits<{
+  'accept-suggestion': [id: string]
+  'deny-suggestion': [id: string]
 }>()
 
 const { renderResume, getResumeSettings } = useMarkdown()
@@ -30,12 +37,47 @@ const refiningSections = computed(() => {
   return sections
 })
 
+function injectSuggestion(html: string, sug: Suggestion): string {
+  const escaped = sug.content
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const tooltip = `<span class="sug-tooltip"><button class="sug-accept" title="Accept">&#10003;</button><button class="sug-deny" title="Deny">&#10005;</button></span>`
+  const innerContent = sug.type === 'bullet' ? '<li>' + escaped + tooltip + '</li>' : escaped + tooltip
+  const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${innerContent}</span>`
+
+  if (sug.section === 'Skills') {
+    const skillsRegex = /(<h1>Skills<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
+    html = html.replace(skillsRegex, (match, h1, content, next) => {
+      return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
+    })
+  } else {
+    const parts = sug.section.split(':')
+    const entryKey = parts[1] || ''
+    if (entryKey) {
+      const keyEscaped = entryKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const entryRegex = new RegExp(
+        `(<strong>[^<]*${keyEscaped}[^<]*<\\/strong>[\\s\\S]*?<ul>)([\\s\\S]*?)(<\\/ul>)`,
+        'i'
+      )
+      html = html.replace(entryRegex, (match, before, items, close) => {
+        return before + items + sugHtml + close
+      })
+    }
+  }
+  return html
+}
+
 const renderedHtml = computed(() => {
   let html = renderResume(props.markdown)
   // Inject refining badges into section h1 headers
   for (const section of refiningSections.value) {
     const regex = new RegExp(`(<h1>)(${section})(</h1>)`, 'i')
     html = html.replace(regex, `$1$2 <span class="refining-badge">refining...</span>$3`)
+  }
+  // Inject suggestion content as green-highlighted spans
+  if (props.suggestions?.length) {
+    for (const sug of props.suggestions) {
+      html = injectSuggestion(html, sug)
+    }
   }
   return html
 })
@@ -77,6 +119,25 @@ function applyMultiPageStyles() {
   document.documentElement.style.setProperty('--base-font-size', settings.value.fontSize + 'px')
   document.documentElement.style.setProperty('--line-height', String(settings.value.lineSpacing))
 }
+
+function handleSuggestionClick(e: Event) {
+  const target = e.target as HTMLElement
+  if (target.classList.contains('sug-accept')) {
+    const id = target.closest('.suggestion')?.getAttribute('data-sug-id')
+    if (id) emit('accept-suggestion', id)
+  } else if (target.classList.contains('sug-deny')) {
+    const id = target.closest('.suggestion')?.getAttribute('data-sug-id')
+    if (id) emit('deny-suggestion', id)
+  }
+}
+
+onMounted(() => {
+  contentRef.value?.addEventListener('click', handleSuggestionClick)
+})
+
+onUnmounted(() => {
+  contentRef.value?.removeEventListener('click', handleSuggestionClick)
+})
 </script>
 
 <template>
