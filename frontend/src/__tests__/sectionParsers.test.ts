@@ -10,11 +10,8 @@ import {
   assembleProjectEntries,
   parseSkillCategories,
   assembleSkillCategories,
-  parseGenericEntries,
-  assembleGenericEntries,
   parseSectionEntries,
   assembleSectionContent,
-  type SectionType,
   type EntryData,
 } from '../utils/sectionParsers'
 
@@ -537,5 +534,63 @@ describe('assembleSectionContent', () => {
     const result = assembleSectionContent(entries, 'generic')
     expect(result).toContain('**Heading**')
     expect(result).toContain('Body text.')
+  })
+})
+
+describe('round-trip: parse then assemble then re-parse', () => {
+  it('experience entries survive round-trip', () => {
+    const original =
+      '**Founding AI Engineer — NestDore (London based startup, ~10 people)**  *October 2025 – March 2026*\n' +
+      '- Building the core **intelligent-matching engine**.\n' +
+      '- Designing **data pipelines**.\n' +
+      '\n' +
+      '**AI/ML Engineer (Part-Time) — BotWot iCX (Remote, Indian SaaS startup, ~25 people)**  *Jan 2025 – Oct 2025*\n' +
+      '- Building orchestrated **multi-agent CRM automation**.'
+
+    const entries = parseExperienceEntries(original)
+    const assembled = assembleExperienceEntries(entries)
+    const reparsed = parseExperienceEntries(assembled)
+    expect(reparsed).toHaveLength(2)
+    expect(reparsed[0].role).toBe('Founding AI Engineer')
+    expect(reparsed[0].company).toBe('NestDore (London based startup, ~10 people)')
+    expect(reparsed[1].role).toBe('AI/ML Engineer (Part-Time)')
+  })
+
+  it('skill categories survive round-trip', () => {
+    const original =
+      '**Data Engineering:** ETL Pipelines, API Integrations, MongoDB, Supabase, VectorDB.\n' +
+      '\n' +
+      '**Programming:** Python, TypeScript, Go.'
+
+    const entries = parseSkillCategories(original)
+    const assembled = assembleSkillCategories(entries)
+    const reparsed = parseSkillCategories(assembled)
+    expect(reparsed).toHaveLength(2)
+    expect(reparsed[0].categoryName).toBe('Data Engineering')
+    expect(reparsed[0].skills).toContain('VectorDB')
+    expect(reparsed[1].skills).toEqual(['Python', 'TypeScript', 'Go'])
+  })
+
+  it('project entries survive round-trip', () => {
+    const original = '**[MyProject](https://github.com/me/proj)** | Stack - React, Node.js\n- Built a thing.'
+
+    const entries = parseProjectEntries(original)
+    const assembled = assembleProjectEntries(entries)
+    const reparsed = parseProjectEntries(assembled)
+    expect(reparsed).toHaveLength(1)
+    expect(reparsed[0].name).toBe('MyProject')
+    expect(reparsed[0].url).toBe('https://github.com/me/proj')
+    expect(reparsed[0].techStack).toEqual(['React', 'Node.js'])
+  })
+
+  it('education entries survive round-trip', () => {
+    const original = '**M.Sc. in AI - Brunel University.** *Jan 2025 – Jan 2026*\n***Coursework**:* ML, DL.'
+
+    const entries = parseEducationEntries(original)
+    const assembled = assembleEducationEntries(entries)
+    const reparsed = parseEducationEntries(assembled)
+    expect(reparsed).toHaveLength(1)
+    expect(reparsed[0].degree).toBe('M.Sc. in AI')
+    expect(reparsed[0].university).toBe('Brunel University.')
   })
 })
