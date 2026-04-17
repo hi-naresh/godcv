@@ -44,6 +44,15 @@ export interface Suggestion {
   context: string
 }
 
+export interface JobAnalysis {
+  job_title: string
+  company: string
+  position_level: string
+  role_type: string
+  key_requirements: string[]
+  matched_strengths: string[]
+}
+
 export interface Profile {
   id: number
   name: string
@@ -63,6 +72,7 @@ export interface JobState {
   result: string | null
   error: string | null
   pageMode: 'single' | 'multi'
+  analysis: JobAnalysis | null
   scoring: JobScoring | null
   atsResult: ATSResult | null
   suggestions: Suggestion[]
@@ -90,6 +100,7 @@ export const useEditorStore = defineStore('editor', () => {
       result: null,
       error: null,
       pageMode: 'single',
+      analysis: null,
       scoring: null,
       atsResult: null,
       suggestions: [],
@@ -120,6 +131,7 @@ export const useEditorStore = defineStore('editor', () => {
       agentStatuses: {},
       result: null,
       error: null,
+      analysis: null,
       scoring: null,
       atsResult: null,
       suggestions: [],

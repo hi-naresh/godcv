@@ -119,6 +119,16 @@ export function useTailor() {
             gap_suggestions: rawScoring.gap_suggestions || [],
           }
         }
+        if (analysis) {
+          updates.analysis = {
+            job_title: (analysis.job_title as string) || '',
+            company: (analysis.company as string) || '',
+            position_level: (analysis.position_level as string) || '',
+            role_type: (analysis.role_type as string) || '',
+            key_requirements: (analysis.key_requirements as string[]) || [],
+            matched_strengths: (analysis.matched_strengths as string[]) || [],
+          }
+        }
         // Use AI-extracted job info if available and user hasn't manually set them
         if (analysis) {
           const aiTitle = analysis.job_title as string

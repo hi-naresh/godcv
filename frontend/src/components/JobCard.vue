@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { SENIORITY_OPTIONS, detectSeniority, detectJobTitle, type SeniorityLevel } from '../composables/useSeniority'
 import type { JobState } from '../stores/editor'
 
@@ -17,12 +18,34 @@ function onJdInput(value: string) {
   if (detected) {
     emit('update:seniorityLevel', detected)
   }
-  // Auto-detect title if user hasn't manually typed one
   if (!props.job.title) {
     const title = detectJobTitle(value)
     if (title) emit('update:title', title)
   }
 }
+
+const fitLevel = computed(() => {
+  if (!props.job.scoring?.before) return null
+  const score = props.job.scoring.before.overall_fit
+  if (score >= 70) return 'good'
+  if (score >= 45) return 'moderate'
+  return 'poor'
+})
+
+const fitWarning = computed(() => {
+  if (!props.job.analysis || !props.job.scoring?.before) return null
+  const level = props.job.analysis.position_level
+  const score = props.job.scoring.before.overall_fit
+  const fit = props.job.scoring.before.experience_fit
+  const seniorLevels = ['senior', 'lead', 'principal']
+  if (score < 40 && seniorLevels.includes(level)) {
+    return `This is a ${level}-level role. ${fit}`
+  }
+  if (score < 30) {
+    return `Low fit (${score}%). ${fit}`
+  }
+  return null
+})
 </script>
 
 <template>
@@ -42,7 +65,28 @@ function onJdInput(value: string) {
     <div v-if="job.tailoringStatus === 'error' && job.error" class="error-message">
       {{ job.error }}
     </div>
+
+    <!-- Job Analysis Card — shown after orchestrator responds -->
+    <div v-if="job.analysis" class="analysis-card">
+      <div class="analysis-header">
+        <span class="analysis-company">{{ job.analysis.company }}</span>
+        <span class="analysis-level" :class="job.analysis.position_level">{{ job.analysis.position_level }}</span>
+      </div>
+      <div class="analysis-role">{{ job.analysis.job_title }}</div>
+      <div v-if="job.scoring?.before" class="analysis-fit" :class="fitLevel">
+        <span class="fit-score">{{ job.scoring.before.overall_fit }}% fit</span>
+        <span class="fit-detail">{{ job.scoring.before.experience_fit }}</span>
+      </div>
+      <div v-if="fitWarning" class="fit-warning">
+        {{ fitWarning }}
+      </div>
+      <div v-if="job.analysis.matched_strengths.length" class="analysis-tags">
+        <span v-for="s in job.analysis.matched_strengths.slice(0, 4)" :key="s" class="tag match">{{ s }}</span>
+      </div>
+    </div>
+
     <input
+      v-if="!job.analysis"
       class="job-title-input"
       :value="job.title"
       @input="$emit('update:title', ($event.target as HTMLInputElement).value)"
@@ -103,4 +147,51 @@ function onJdInput(value: string) {
   padding: 6px 8px; font-size: 0.78rem; color: #c00; line-height: 1.3;
   word-break: break-word;
 }
+
+/* Analysis card */
+.analysis-card {
+  background: #f8f9fb; border: 1px solid #e4e7ec; border-radius: 8px;
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 4px;
+}
+.analysis-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.analysis-company {
+  font-weight: 700; font-size: 0.82rem; color: #333;
+}
+.analysis-level {
+  font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.analysis-level.graduate, .analysis-level.junior { background: #e6f4ea; color: #1a7f37; }
+.analysis-level.mid-level { background: #e8f0fe; color: #1a73e8; }
+.analysis-level.senior { background: #fef3e2; color: #b45309; }
+.analysis-level.lead, .analysis-level.principal { background: #fce8e6; color: #c5221f; }
+.analysis-role {
+  font-size: 0.8rem; color: #555; font-weight: 500;
+}
+.analysis-fit {
+  display: flex; align-items: center; gap: 6px; font-size: 0.78rem;
+}
+.fit-score {
+  font-weight: 700; padding: 1px 6px; border-radius: 4px;
+}
+.analysis-fit.good .fit-score { background: #e6f4ea; color: #1a7f37; }
+.analysis-fit.moderate .fit-score { background: #fef3e2; color: #b45309; }
+.analysis-fit.poor .fit-score { background: #fce8e6; color: #c5221f; }
+.fit-detail {
+  color: #777; font-size: 0.72rem; flex: 1;
+}
+.fit-warning {
+  background: #fce8e6; border: 1px solid #f5c6cb; border-radius: 6px;
+  padding: 5px 8px; font-size: 0.75rem; color: #c5221f; font-weight: 500;
+  line-height: 1.3;
+}
+.analysis-tags {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.tag {
+  font-size: 0.68rem; padding: 1px 6px; border-radius: 3px;
+}
+.tag.match { background: #e8f0fe; color: #1a73e8; }
 </style>
