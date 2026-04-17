@@ -44,7 +44,9 @@ const fitWarning = computed(() => {
   <div class="job-card" :class="job.tailoringStatus">
     <div class="job-card-header">
       <span v-if="job.tailoringStatus === 'done'" class="status-badge done">Done</span>
-      <span v-else-if="job.tailoringStatus === 'running'" class="status-badge running">Running...</span>
+      <span v-else-if="job.tailoringStatus === 'analyzed'" class="status-badge analyzed">Analyzed</span>
+      <span v-else-if="job.tailoringStatus === 'analyzing'" class="status-badge running">Analyzing...</span>
+      <span v-else-if="job.tailoringStatus === 'running'" class="status-badge running">Tailoring...</span>
       <span v-else-if="job.tailoringStatus === 'error'" class="status-badge error">Error</span>
       <button class="remove-btn" @click="$emit('remove')" title="Remove job">&times;</button>
     </div>
@@ -103,6 +105,8 @@ const fitWarning = computed(() => {
   display: flex; flex-direction: column; gap: 6px;
   transition: border-color 0.2s;
 }
+.job-card.analyzing { border-color: #667eea; }
+.job-card.analyzed { border-color: #28a745; }
 .job-card.running { border-color: #667eea; }
 .job-card.done { border-color: #28a745; }
 .job-card.error { border-color: #dc3545; }
@@ -127,6 +131,7 @@ const fitWarning = computed(() => {
   font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;
 }
 .status-badge.done { background: #e6f9e6; color: #28a745; }
+.status-badge.analyzed { background: #e6f9e6; color: #1a7f37; }
 .status-badge.running { background: #eef0ff; color: #667eea; }
 .status-badge.error { background: #ffe6e6; color: #dc3545; }
 .jd-textarea {

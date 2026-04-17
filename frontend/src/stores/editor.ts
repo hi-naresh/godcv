@@ -66,7 +66,7 @@ export interface JobState {
   title: string
   jobDescription: string
   seniorityLevel: SeniorityLevel | null
-  tailoringStatus: 'idle' | 'running' | 'done' | 'error'
+  tailoringStatus: 'idle' | 'analyzing' | 'analyzed' | 'running' | 'done' | 'error'
   tailoringPlan: ToolCall[] | null
   agentStatuses: Record<string, 'pending' | 'running' | 'done'>
   result: string | null

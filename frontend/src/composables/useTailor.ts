@@ -3,17 +3,18 @@ import { useEditorStore } from '../stores/editor'
 export function useTailor() {
   const store = useEditorStore()
 
-  function startTailoring(jobId: string, apiKey?: string, resumeOverride?: string) {
+  function startTailoring(jobId: string, apiKey?: string, resumeOverride?: string, analyzeOnly: boolean = false) {
     const job = store.jobs.get(jobId)
     if (!job) return
 
     store.resetJobTailoring(jobId)
-    store.updateJob(jobId, { tailoringStatus: 'running' })
+    store.updateJob(jobId, { tailoringStatus: analyzeOnly ? 'analyzing' : 'running' })
 
-    const body: Record<string, string> = { job_description: job.jobDescription }
+    const body: Record<string, any> = { job_description: job.jobDescription }
     if (apiKey) body.gemini_api_key = apiKey
     if (resumeOverride) body.resume_override = resumeOverride
     if (job.seniorityLevel) body.seniority_level = job.seniorityLevel
+    if (analyzeOnly) body.analyze_only = true
 
     fetch('/api/tailor', {
       method: 'POST',
@@ -67,12 +68,12 @@ export function useTailor() {
         }
       }
 
-      // If stream ended without a 'complete' or 'error' event, check status
+      // If stream ended without a 'complete', 'error', or 'analysis_complete' event
       const finalJob = store.jobs.get(jobId)
-      if (finalJob && finalJob.tailoringStatus === 'running') {
+      if (finalJob && (finalJob.tailoringStatus === 'running' || finalJob.tailoringStatus === 'analyzing')) {
         store.updateJob(jobId, {
           tailoringStatus: 'error',
-          error: 'Connection closed before tailoring completed',
+          error: 'Connection closed before completing',
         })
       }
     }).catch((err) => {
@@ -83,10 +84,18 @@ export function useTailor() {
     })
   }
 
+  function startBatchAnalysis(apiKey?: string, resumeOverride?: string) {
+    for (const [jobId, job] of store.jobs) {
+      if (job.jobDescription.trim()) {
+        startTailoring(jobId, apiKey, resumeOverride, true)
+      }
+    }
+  }
+
   function startBatchTailoring(apiKey?: string, resumeOverride?: string) {
     for (const [jobId, job] of store.jobs) {
       if (job.jobDescription.trim()) {
-        startTailoring(jobId, apiKey, resumeOverride)
+        startTailoring(jobId, apiKey, resumeOverride, false)
       }
     }
   }
@@ -156,6 +165,9 @@ export function useTailor() {
         store.updateJob(jobId, { agentStatuses: statuses })
         break
       }
+      case 'analysis_complete':
+        store.updateJob(jobId, { tailoringStatus: 'analyzed' })
+        break
       case 'complete':
         store.updateJob(jobId, {
           tailoringStatus: 'done',
@@ -186,5 +198,5 @@ export function useTailor() {
     }
   }
 
-  return { startTailoring, startBatchTailoring }
+  return { startTailoring, startBatchAnalysis, startBatchTailoring }
 }

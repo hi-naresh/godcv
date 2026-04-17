@@ -13,7 +13,7 @@ const props = defineProps<{ apiKey?: string }>()
 
 const store = useEditorStore()
 const { fetchProfile } = useProfile()
-const { startBatchTailoring } = useTailor()
+const { startBatchAnalysis, startBatchTailoring } = useTailor()
 
 onMounted(async () => {
   const p = await fetchProfile()
@@ -57,8 +57,9 @@ const activeAtsResult = computed(() => activeJob.value?.atsResult ?? null)
 const activeSuggestions = computed(() => activeJob.value?.suggestions ?? [])
 
 const hasJobs = computed(() => store.jobs.size > 0)
-const anyRunning = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running'))
-const canTailor = computed(() =>
+const anyBusy = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running' || j.tailoringStatus === 'analyzing'))
+const anyAnalyzed = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'analyzed'))
+const canCheck = computed(() =>
   hasJobs.value &&
   [...store.jobs.values()].some(j => j.jobDescription.trim()) &&
   store.markdown.trim()
@@ -67,8 +68,15 @@ const canTailor = computed(() =>
 function addJob() { store.addJob() }
 function removeJob(id: string) { store.removeJob(id) }
 
-function tailorAll() {
+function checkAll() {
   if (!store.markdown.trim()) return alert('Load a resume first.')
+  const key = props.apiKey || store.profile?.gemini_api_key || ''
+  startBatchAnalysis(key, store.markdown)
+  const firstJob = [...store.jobs.keys()][0]
+  if (firstJob) store.activeJobId = firstJob
+}
+
+function tailorAll() {
   const key = props.apiKey || store.profile?.gemini_api_key || ''
   startBatchTailoring(key, store.markdown)
   const firstJob = [...store.jobs.keys()][0]
@@ -170,14 +178,24 @@ function denySuggestion(sugId: string) {
           />
         </div>
 
-        <button
-          v-if="hasJobs"
-          class="tailor-all-btn"
-          :disabled="!canTailor || anyRunning"
-          @click="tailorAll"
-        >
-          {{ anyRunning ? 'Tailoring...' : 'Tailor All' }}
-        </button>
+        <div v-if="hasJobs" class="action-buttons">
+          <button
+            v-if="!anyAnalyzed"
+            class="check-all-btn"
+            :disabled="!canCheck || anyBusy"
+            @click="checkAll"
+          >
+            {{ anyBusy ? 'Analyzing...' : 'Check All' }}
+          </button>
+          <button
+            v-if="anyAnalyzed"
+            class="tailor-all-btn"
+            :disabled="anyBusy"
+            @click="tailorAll"
+          >
+            {{ anyBusy ? 'Tailoring...' : 'Tailor All' }}
+          </button>
+        </div>
       </section>
 
       <!-- Section Editor in left panel -->
@@ -282,14 +300,21 @@ function denySuggestion(sugId: string) {
   text-align: center; padding: 20px; color: #999; font-size: 0.85rem;
 }
 
-.tailor-all-btn {
-  width: 100%; padding: 11px; font-weight: 700; border-radius: 10px;
-  border: none; color: white; cursor: pointer; font-size: 0.9rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  margin-top: 8px;
+.action-buttons {
+  display: flex; gap: 8px; margin-top: 8px;
 }
-.tailor-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.tailor-all-btn:not(:disabled):hover { opacity: 0.9; }
+.check-all-btn, .tailor-all-btn {
+  flex: 1; padding: 11px; font-weight: 700; border-radius: 10px;
+  border: none; color: white; cursor: pointer; font-size: 0.9rem;
+}
+.check-all-btn {
+  background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+}
+.tailor-all-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.check-all-btn:disabled, .tailor-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.check-all-btn:not(:disabled):hover, .tailor-all-btn:not(:disabled):hover { opacity: 0.9; }
 
 .right-panel {
   flex: 1; max-width: 240mm;

@@ -75,6 +75,11 @@ async def tailor_resume(request: TailorRequest):
                 "scoring": plan.get("scoring"),
             })
 
+            # If analyze_only, stop here — user reviews before tailoring
+            if request.analyze_only:
+                yield _sse_event("analysis_complete", {"message": "Analysis complete. Review results before tailoring."})
+                return
+
             # Phase 2: Parse resume
             parsed = parse_resume(resume_md)
 
