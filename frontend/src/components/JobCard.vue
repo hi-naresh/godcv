@@ -84,12 +84,12 @@ const fitWarning = computed(() => {
     </div>
 
     <select
-      v-if="!job.analysis"
+      v-if="job.analysis"
       class="seniority-select"
       :value="job.seniorityLevel || ''"
       @change="$emit('update:seniorityLevel', ($event.target as HTMLSelectElement).value as SeniorityLevel || null)"
     >
-      <option value="">Seniority level (optional)</option>
+      <option value="">Override seniority</option>
       <option v-for="level in SENIORITY_OPTIONS" :key="level" :value="level">
         {{ level.charAt(0).toUpperCase() + level.slice(1) }}
       </option>
