@@ -83,6 +83,12 @@ const fitWarning = computed(() => {
       <div v-if="job.analysis.matched_strengths.length" class="analysis-tags">
         <span v-for="s in job.analysis.matched_strengths.slice(0, 4)" :key="s" class="tag match">{{ s }}</span>
       </div>
+      <div v-if="job.scoring?.gap_suggestions?.length" class="analysis-gaps">
+        <span class="gaps-label">Gaps:</span>
+        <ul class="gaps-list">
+          <li v-for="(gap, i) in job.scoring.gap_suggestions" :key="i">{{ gap }}</li>
+        </ul>
+      </div>
     </div>
 
     <input
@@ -194,4 +200,17 @@ const fitWarning = computed(() => {
   font-size: 0.68rem; padding: 1px 6px; border-radius: 3px;
 }
 .tag.match { background: #e8f0fe; color: #1a73e8; }
+
+.analysis-gaps {
+  border-top: 1px solid #e4e7ec; padding-top: 4px; margin-top: 2px;
+}
+.gaps-label {
+  font-size: 0.72rem; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.gaps-list {
+  margin: 2px 0 0 14px; padding: 0;
+}
+.gaps-list li {
+  font-size: 0.72rem; color: #8b5e34; line-height: 1.35; margin-bottom: 1px;
+}
 </style>
