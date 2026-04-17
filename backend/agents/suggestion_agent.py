@@ -29,28 +29,45 @@ ORIGINAL FULL RESUME (may contain entries excluded from tailored version):
 
 WHAT YOU CAN SUGGEST:
 
-1. **Skills** (type: "skill") — Skills the candidate clearly knows from their coursework, tech stack, or projects but didn't explicitly list. Only suggest skills genuinely derivable from their background.
+ADD content:
+
+1. **Skills** (type: "skill") — Skills the candidate clearly knows from their coursework, tech stack, or projects but didn't explicitly list.
    - section: "Skills"
    - content: comma-separated skill names
 
-2. **Bullet points** (type: "bullet") — New or improved bullet points for existing experience/project entries that better highlight relevant work.
+2. **Bullet points** (type: "bullet") — New bullet points for existing experience/project entries that highlight relevant work.
    - section: "experience:CompanyKey" or "projects:ProjectKey"
    - content: a single bullet starting with "- "
 
-3. **Coursework projects** (type: "project") — If the candidate has relevant coursework (check Education section) that matches a JD requirement, suggest a concise project entry based on what they would have built during that coursework. This is NOT fabrication — coursework projects are real academic work.
+3. **Coursework projects** (type: "project") — If relevant coursework matches a JD requirement, suggest a project entry based on that academic work.
    - section: "Projects"
    - content: full project entry in markdown format:
      **ProjectName** at University | Stack - Tech1, Tech2
      - One bullet describing the project outcome
 
+REMOVE or REPLACE content:
+
+4. **Remove** (type: "remove") — Flag content that HURTS this application: irrelevant bullets, off-topic skills, or entries that waste space for this specific role.
+   - section: "experience:CompanyKey" or "projects:ProjectKey" or "Skills"
+   - content: the EXACT text to remove (copy it verbatim from the resume)
+   - context: why removing this helps
+
+5. **Replace** (type: "replace") — Flag a bullet or skill that should be reworded to better match the JD.
+   - section: "experience:CompanyKey" or "projects:ProjectKey" or "Skills"
+   - content: the replacement text
+   - old_content: the EXACT original text being replaced (copy verbatim from the resume)
+   - context: why this rewording is better
+
 STRICT RULES:
 - NEVER fabricate professional experience, job roles, or company names
 - NEVER claim skills the candidate has zero evidence of knowing
-- Coursework projects MUST be derivable from listed coursework topics (e.g., "Predictive Analytics" coursework → a predictive model project is valid)
-- Skills MUST be inferable from their education, projects, or tech stack (e.g., candidate uses PyTorch + does ML coursework → "CNNs" is valid to suggest)
+- Coursework projects MUST be derivable from listed coursework topics
+- Skills MUST be inferable from their education, projects, or tech stack
 - Do NOT suggest content for unfixable gaps (e.g., "needs 5 more years of experience")
+- For REMOVE: only flag content that actively hurts the application (not just neutral content)
+- For REPLACE: the replacement must be truthful — only reword, don't fabricate new claims
 - Keep suggestions concise — each bullet should be 1-2 lines max
-- Suggest at most 5 items total, prioritise highest-impact gaps
+- Suggest at most 7 items total, prioritise highest-impact changes
 {original_context}
 TAILORED RESUME:
 {tailored_resume}
@@ -66,9 +83,10 @@ Respond with a JSON array (may be empty if no actionable gaps):
   {{
     "id": "sug-1",
     "section": "<Skills|experience:CompanyKey|projects:ProjectKey|Projects>",
-    "type": "<skill|bullet|project>",
-    "content": "<the actual text to add>",
-    "context": "<which gap this addresses, 1 short sentence>"
+    "type": "<skill|bullet|project|remove|replace>",
+    "content": "<text to add, or exact text to remove, or replacement text>",
+    "old_content": "<ONLY for type=replace: the exact original text being replaced>",
+    "context": "<what this addresses, 1 short sentence>"
   }}
 ]"""
 

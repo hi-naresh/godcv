@@ -1,7 +1,7 @@
 :root {
   --page-w: 210mm;
   --page-h: 297mm;
-  --page-margin: 8mm;
+  --page-margin: 6mm;
   --base-font-size: 11px;
   --line-height: 1.4;
   --text-color: #111;
@@ -49,7 +49,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .sheet-content strong { font-weight: 700; }
 .sheet-content a { color: #0066cc; text-decoration: underline; }
 
-.sheet-content p strong + em { float: right; font-style: italic; margin-left: 1rem; white-space: nowrap; }
+.sheet-content p strong + em { float: right; font-style: normal; font-weight: 700; margin-left: 1rem; white-space: nowrap; }
+.sheet-content p br { display: block; clear: both; content: ""; }
 .sheet-content p:after { content: ""; display: table; clear: both; }
 
 .warn {
@@ -104,7 +105,42 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   vertical-align: middle;
   white-space: nowrap;
 }
-.sheet-content .suggestion:hover .sug-tooltip {
+/* Remove suggestion — red highlight with strikethrough */
+.sheet-content .suggestion-remove {
+  background: #fff0f0;
+  border-left: 2px solid #dc3545;
+  padding-left: 4px;
+  text-decoration: line-through;
+  color: #999;
+  transition: background 0.2s;
+}
+.sheet-content .suggestion-remove:hover {
+  background: #ffe0e0;
+}
+
+/* Replace suggestion — old struck through, new in green */
+.sheet-content .suggestion-replace {
+  background: #fff8e6;
+  border-left: 2px solid #f0ad4e;
+  padding-left: 4px;
+  transition: background 0.2s;
+}
+.sheet-content .suggestion-replace:hover {
+  background: #fff0cc;
+}
+.sheet-content .sug-old {
+  text-decoration: line-through;
+  color: #999;
+}
+.sheet-content .sug-new {
+  background: #e6ffe6;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.sheet-content .suggestion:hover .sug-tooltip,
+.sheet-content .suggestion-remove:hover .sug-tooltip,
+.sheet-content .suggestion-replace:hover .sug-tooltip {
   display: inline;
 }
 .sheet-content .sug-accept,
@@ -132,11 +168,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   .error-banner, .export-btn, .preview-label, .empty-preview,
   .empty-state, .warn, .refining-badge, .sug-tooltip { display: none !important; }
 
-  .suggestion {
+  .suggestion, .suggestion-remove, .suggestion-replace {
     background: none !important;
     border-left: none !important;
     padding: 0 !important;
+    text-decoration: none !important;
+    color: inherit !important;
   }
+  .sug-old { display: none !important; }
+  .sug-new { background: none !important; padding: 0 !important; }
 
   /* Strip all wrapper padding/margin/gap so only .sheet occupies space */
   .app, .main, .editor-layout, .right-panel, .preview-area,

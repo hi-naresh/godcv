@@ -38,8 +38,9 @@ export interface ATSResult {
 export interface Suggestion {
   id: string
   section: string
-  type: 'skill' | 'bullet' | 'project'
+  type: 'skill' | 'bullet' | 'project' | 'remove' | 'replace'
   content: string
+  old_content?: string
   context: string
 }
 

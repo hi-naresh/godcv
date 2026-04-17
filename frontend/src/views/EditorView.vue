@@ -85,8 +85,17 @@ function acceptSuggestion(sugId: string) {
 
   // Merge content into the result markdown
   let md = job.result
-  if (sug.section === 'Skills' && sug.type === 'skill') {
-    // Append skills to the Skills section — find last non-empty line in Skills
+  if (sug.type === 'remove') {
+    // Remove the exact content from the markdown
+    const textToRemove = sug.content.trim()
+    // Try removing as a full line (bullet or text)
+    const lineRegex = new RegExp(`^[ \\t]*${textToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*\\n?`, 'gm')
+    md = md.replace(lineRegex, '')
+  } else if (sug.type === 'replace' && sug.old_content) {
+    // Replace old_content with new content
+    md = md.replace(sug.old_content.trim(), sug.content.trim())
+  } else if (sug.section === 'Skills' && sug.type === 'skill') {
+    // Append skills to the Skills section
     const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
     if (skillsMatch) {
       const before = skillsMatch[1]
@@ -108,7 +117,6 @@ function acceptSuggestion(sugId: string) {
     const parts = sug.section.split(':')
     const entryKey = parts[1] || ''
     if (entryKey) {
-      // Find the entry by its bold title containing the key
       const keyEscaped = entryKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       const entryRegex = new RegExp(
         `(\\*\\*[^*]*${keyEscaped}[^*]*\\*\\*[\\s\\S]*?)(\\n(?=\\n\\*\\*|\\n---|\\n#|$))`,

@@ -37,33 +37,70 @@ const refiningSections = computed(() => {
   return sections
 })
 
-function injectSuggestion(html: string, sug: Suggestion): string {
-  const escaped = sug.content
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const tooltip = `<span class="sug-tooltip"><button class="sug-accept" title="Accept">&#10003;</button><button class="sug-deny" title="Deny">&#10005;</button></span>`
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function makeTooltip(acceptLabel: string = '&#10003;', denyLabel: string = '&#10005;'): string {
+  return `<span class="sug-tooltip"><button class="sug-accept" title="Accept">${acceptLabel}</button><button class="sug-deny" title="Dismiss">${denyLabel}</button></span>`
+}
+
+function injectSuggestion(html: string, sug: Suggestion): string {
+  const escaped = escapeHtml(sug.content)
+  const titleAttr = `title="${escapeHtml(sug.context)}"`
+
+  // --- REMOVE: wrap existing text in red strikethrough ---
+  if (sug.type === 'remove') {
+    const tooltip = makeTooltip('&#10005;', '&#8630;')  // ✕ to confirm remove, ↶ to keep
+    const contentToFind = escapeHtml(sug.content.replace(/^- /, '').trim())
+    // Try to find and wrap the exact text in the HTML
+    const textRegex = new RegExp(`(<li>)([^<]*${escapeRegex(contentToFind)}[^<]*)(<\\/li>)`, 'i')
+    const match = html.match(textRegex)
+    if (match) {
+      html = html.replace(textRegex, `<li class="suggestion-remove" data-sug-id="${sug.id}" ${titleAttr}>$2${tooltip}</li>`)
+    }
+    return html
+  }
+
+  // --- REPLACE: show old as strikethrough + new as green ---
+  if (sug.type === 'replace' && sug.old_content) {
+    const tooltip = makeTooltip()
+    const oldText = escapeHtml(sug.old_content.replace(/^- /, '').trim())
+    const textRegex = new RegExp(`(<li>)([^<]*${escapeRegex(oldText)}[^<]*)(<\\/li>)`, 'i')
+    const match = html.match(textRegex)
+    if (match) {
+      const replacement = `<li class="suggestion-replace" data-sug-id="${sug.id}" ${titleAttr}><span class="sug-old">$2</span> <span class="sug-new">${escaped}</span>${tooltip}</li>`
+      html = html.replace(textRegex, replacement)
+    }
+    return html
+  }
+
+  // --- ADD: skill ---
+  const tooltip = makeTooltip()
   if (sug.section === 'Skills') {
-    // For skills: inline span at end of skills text
-    const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${escaped}${tooltip}</span>`
+    const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</span>`
     const skillsRegex = /(<h1>Skills<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
     html = html.replace(skillsRegex, (match, h1, content, next) => {
       return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
     })
   } else if (sug.type === 'project' && sug.section === 'Projects') {
-    // For new project entries: append as a highlighted block before the Projects section ends
-    const projHtml = `<div class="suggestion suggestion-project" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${escaped}${tooltip}</div>`
-    // Find the end of the Projects section (before next h1 or hr)
+    // --- ADD: new project entry ---
+    const projHtml = `<div class="suggestion suggestion-project" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</div>`
     const projRegex = /(<h1>Projects<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
     html = html.replace(projRegex, (match, h1, content, next) => {
       return h1 + content + projHtml + next
     })
   } else {
-    // For bullets: <li> with suggestion class directly
-    const sugLi = `<li class="suggestion" data-sug-id="${sug.id}" title="${sug.context.replace(/"/g, '&quot;')}">${escaped}${tooltip}</li>`
+    // --- ADD: bullet ---
+    const sugLi = `<li class="suggestion" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</li>`
     const parts = sug.section.split(':')
     const entryKey = parts[1] || ''
     if (entryKey) {
-      const keyEscaped = entryKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const keyEscaped = escapeRegex(entryKey)
       const entryRegex = new RegExp(
         `(<strong>[^<]*${keyEscaped}[^<]*<\\/strong>[\\s\\S]*?<ul>)([\\s\\S]*?)(<\\/ul>)`,
         'i'
@@ -106,20 +143,62 @@ function fitToOnePage() {
   if (!el) return
   showWarn.value = false
   let size = settings.value.fontSize
+  const lh = settings.value.lineSpacing
   const min = 8
-  const lineHeight = settings.value.lineSpacing
+  const maxSize = Math.min(settings.value.fontSize + 2, 16)
 
   document.documentElement.style.setProperty('--base-font-size', size + 'px')
-  document.documentElement.style.setProperty('--line-height', String(lineHeight))
+  document.documentElement.style.setProperty('--line-height', String(lh))
 
   requestAnimationFrame(() => {
+    const target = el.clientHeight
+
+    // Phase 1: shrink font if overflowing
     let safety = 100
-    while (el.scrollHeight > el.clientHeight + 1 && size > min && safety--) {
+    while (el.scrollHeight > target + 1 && size > min && safety--) {
       size = Math.max(min, size - 0.15)
       document.documentElement.style.setProperty('--base-font-size', size + 'px')
     }
-    if (el.scrollHeight > el.clientHeight + 1) {
+    if (el.scrollHeight > target + 1) {
       showWarn.value = true
+      return
+    }
+
+    // Phase 2: grow font to fill space (up to max)
+    safety = 100
+    while (el.scrollHeight < target - 10 && size < maxSize && safety--) {
+      size = Math.min(maxSize, size + 0.15)
+      document.documentElement.style.setProperty('--base-font-size', size + 'px')
+      if (el.scrollHeight > target + 1) {
+        size -= 0.15
+        document.documentElement.style.setProperty('--base-font-size', size + 'px')
+        break
+      }
+    }
+
+    // Phase 3: binary search for the largest line-height that doesn't overflow
+    // Use scrollHeight vs clientHeight as the only overflow check (position-independent)
+    if (el.scrollHeight <= target) {
+      let lo = lh
+      let hi = Math.min(2.4, lh * 1.5) // generous upper bound
+      // Verify hi actually overflows; if not, just use it
+      document.documentElement.style.setProperty('--line-height', String(hi))
+      if (el.scrollHeight <= target) {
+        // Even max doesn't overflow — keep it
+      } else {
+        // Binary search between lo and hi
+        safety = 50
+        while (hi - lo > 0.0005 && safety--) {
+          const mid = +((lo + hi) / 2).toFixed(4)
+          document.documentElement.style.setProperty('--line-height', String(mid))
+          if (el.scrollHeight > target) {
+            hi = mid
+          } else {
+            lo = mid
+          }
+        }
+        document.documentElement.style.setProperty('--line-height', String(lo))
+      }
     }
   })
 }
@@ -132,12 +211,14 @@ function applyMultiPageStyles() {
 
 function handleSuggestionClick(e: Event) {
   const target = e.target as HTMLElement
+  const sugEl = target.closest('[data-sug-id]')
+  if (!sugEl) return
+  const id = sugEl.getAttribute('data-sug-id')
+  if (!id) return
   if (target.classList.contains('sug-accept')) {
-    const id = target.closest('.suggestion')?.getAttribute('data-sug-id')
-    if (id) emit('accept-suggestion', id)
+    emit('accept-suggestion', id)
   } else if (target.classList.contains('sug-deny')) {
-    const id = target.closest('.suggestion')?.getAttribute('data-sug-id')
-    if (id) emit('deny-suggestion', id)
+    emit('deny-suggestion', id)
   }
 }
 
