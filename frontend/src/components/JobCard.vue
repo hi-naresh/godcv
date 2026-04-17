@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { SENIORITY_OPTIONS, detectSeniority, detectJobTitle, type SeniorityLevel } from '../composables/useSeniority'
+import { SENIORITY_OPTIONS, type SeniorityLevel } from '../composables/useSeniority'
 import type { JobState } from '../stores/editor'
 
 const props = defineProps<{ job: JobState }>()
@@ -14,14 +14,6 @@ const emit = defineEmits<{
 
 function onJdInput(value: string) {
   emit('update:jobDescription', value)
-  const detected = detectSeniority(value)
-  if (detected) {
-    emit('update:seniorityLevel', detected)
-  }
-  if (!props.job.title) {
-    const title = detectJobTitle(value)
-    if (title) emit('update:title', title)
-  }
 }
 
 const fitLevel = computed(() => {
@@ -91,19 +83,13 @@ const fitWarning = computed(() => {
       </div>
     </div>
 
-    <input
-      v-if="!job.analysis"
-      class="job-title-input"
-      :value="job.title"
-      @input="$emit('update:title', ($event.target as HTMLInputElement).value)"
-      placeholder="Job title (auto-detected from description)"
-    />
     <select
+      v-if="!job.analysis"
       class="seniority-select"
       :value="job.seniorityLevel || ''"
       @change="$emit('update:seniorityLevel', ($event.target as HTMLSelectElement).value as SeniorityLevel || null)"
     >
-      <option value="">Auto-detect level</option>
+      <option value="">Seniority level (optional)</option>
       <option v-for="level in SENIORITY_OPTIONS" :key="level" :value="level">
         {{ level.charAt(0).toUpperCase() + level.slice(1) }}
       </option>
