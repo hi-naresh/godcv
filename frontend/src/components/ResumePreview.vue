@@ -85,14 +85,14 @@ function injectSuggestion(html: string, sug: Suggestion): string {
   if (sug.section === 'Skills') {
     const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</span>`
     const skillsRegex = /(<h1>Skills<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
-    html = html.replace(skillsRegex, (match, h1, content, next) => {
+    html = html.replace(skillsRegex, (_match, h1, content, next) => {
       return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
     })
   } else if (sug.type === 'project' && sug.section === 'Projects') {
     // --- ADD: new project entry ---
     const projHtml = `<div class="suggestion suggestion-project" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</div>`
     const projRegex = /(<h1>Projects<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
-    html = html.replace(projRegex, (match, h1, content, next) => {
+    html = html.replace(projRegex, (_match, h1, content, next) => {
       return h1 + content + projHtml + next
     })
   } else {
@@ -106,7 +106,7 @@ function injectSuggestion(html: string, sug: Suggestion): string {
         `(<strong>[^<]*${keyEscaped}[^<]*<\\/strong>[\\s\\S]*?<ul>)([\\s\\S]*?)(<\\/ul>)`,
         'i'
       )
-      html = html.replace(entryRegex, (match, before, items, close) => {
+      html = html.replace(entryRegex, (_match, before, items, close) => {
         return before + items + sugLi + close
       })
     }

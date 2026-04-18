@@ -147,7 +147,7 @@ function acceptSuggestion(sugId: string) {
         `(\\*\\*[^*]*${keyEscaped}[^*]*\\*\\*[\\s\\S]*?)(\\n(?=\\n\\*\\*|\\n---|\\n#|$))`,
         'i'
       )
-      md = md.replace(entryRegex, (match, entryContent, trailing) => {
+      md = md.replace(entryRegex, (_match, entryContent, trailing) => {
         return entryContent + '\n' + sug.content + trailing
       })
     }
