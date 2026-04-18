@@ -198,5 +198,13 @@ export function useTailor() {
     }
   }
 
-  return { startTailoring, startBatchAnalysis, startBatchTailoring }
+  function analyzeJob(jobId: string, apiKey?: string, resumeOverride?: string) {
+    startTailoring(jobId, apiKey, resumeOverride, true)
+  }
+
+  function tailorJob(jobId: string, apiKey?: string, resumeOverride?: string) {
+    startTailoring(jobId, apiKey, resumeOverride, false)
+  }
+
+  return { startTailoring, startBatchAnalysis, startBatchTailoring, analyzeJob, tailorJob }
 }

@@ -13,7 +13,7 @@ const props = defineProps<{ apiKey?: string }>()
 
 const store = useEditorStore()
 const { fetchProfile } = useProfile()
-const { startBatchAnalysis, startBatchTailoring } = useTailor()
+const { analyzeJob, tailorJob } = useTailor()
 
 onMounted(async () => {
   const p = await fetchProfile()
@@ -56,49 +56,57 @@ const activeScoring = computed(() => activeJob.value?.scoring ?? null)
 const activeAtsResult = computed(() => activeJob.value?.atsResult ?? null)
 const activeSuggestions = computed(() => activeJob.value?.suggestions ?? [])
 
-const hasJobs = computed(() => store.jobs.size > 0)
-const anyAnalyzing = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'analyzing'))
-const anyTailoring = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running'))
-const anyBusy = computed(() => anyAnalyzing.value || anyTailoring.value)
-const hasAnalysis = computed(() => [...store.jobs.values()].some(j => j.analysis !== null))
-const canCheck = computed(() =>
-  hasJobs.value &&
-  [...store.jobs.values()].some(j => j.jobDescription.trim()) &&
-  store.markdown.trim()
+// Per-job status helpers
+const jobIsAnalyzing = computed(() => activeJob.value?.tailoringStatus === 'analyzing')
+const jobIsAnalyzed = computed(() => activeJob.value?.analysis !== null)
+const jobIsTailoring = computed(() => activeJob.value?.tailoringStatus === 'running')
+const jobIsBusy = computed(() => jobIsAnalyzing.value || jobIsTailoring.value)
+const jobCanCheck = computed(() =>
+  activeJob.value !== null &&
+  activeJob.value.jobDescription.trim() !== '' &&
+  store.markdown.trim() !== ''
 )
 
-function addJob() { store.addJob() }
-function removeJob(id: string) { store.removeJob(id) }
-
-function checkAll() {
-  if (!store.markdown.trim()) return alert('Load a resume first.')
-  const key = props.apiKey || store.profile?.gemini_api_key || ''
-  startBatchAnalysis(key, store.markdown)
-  const firstJob = [...store.jobs.keys()][0]
-  if (firstJob) store.activeJobId = firstJob
+function addJob() {
+  const id = store.addJob()
+  store.activeJobId = id
 }
 
-function tailorAll() {
-  const key = props.apiKey || store.profile?.gemini_api_key || ''
-  startBatchTailoring(key, store.markdown)
-  const firstJob = [...store.jobs.keys()][0]
-  if (firstJob) store.activeJobId = firstJob
+function removeJob(id: string) { store.removeJob(id) }
+
+function getApiKey(): string {
+  return props.apiKey || store.profile?.gemini_api_key || ''
+}
+
+function checkJob() {
+  if (!activeJob.value || !store.markdown.trim()) return
+  analyzeJob(activeJob.value.id, getApiKey(), store.markdown)
+}
+
+function tailorCurrentJob() {
+  if (!activeJob.value) return
+  tailorJob(activeJob.value.id, getApiKey(), store.markdown)
 }
 
 async function exportPdf() {
   const sheet = document.querySelector('.sheet') as HTMLElement
   if (!sheet) return
-  const html2pdf = (await import('html2pdf.js')).default
-  html2pdf()
-    .set({
-      margin: 0,
-      filename: 'resume.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    })
-    .from(sheet)
-    .save()
+
+  const { default: html2canvas } = await import('html2canvas')
+  const { default: jsPDF } = await import('jspdf')
+
+  const origShadow = sheet.style.boxShadow
+  sheet.style.boxShadow = 'none'
+
+  try {
+    const canvas = await html2canvas(sheet, { scale: 2, useCORS: true })
+    const imgData = canvas.toDataURL('image/jpeg', 0.98)
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297)
+    pdf.save('resume.pdf')
+  } finally {
+    sheet.style.boxShadow = origShadow
+  }
 }
 
 function acceptSuggestion(sugId: string) {
@@ -107,19 +115,14 @@ function acceptSuggestion(sugId: string) {
   const sug = job.suggestions.find(s => s.id === sugId)
   if (!sug) return
 
-  // Merge content into the result markdown
   let md = job.result
   if (sug.type === 'remove') {
-    // Remove the exact content from the markdown
     const textToRemove = sug.content.trim()
-    // Try removing as a full line (bullet or text)
     const lineRegex = new RegExp(`^[ \\t]*${textToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*\\n?`, 'gm')
     md = md.replace(lineRegex, '')
   } else if (sug.type === 'replace' && sug.old_content) {
-    // Replace old_content with new content
     md = md.replace(sug.old_content.trim(), sug.content.trim())
   } else if (sug.section === 'Skills' && sug.type === 'skill') {
-    // Append skills to the Skills section
     const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
     if (skillsMatch) {
       const before = skillsMatch[1]
@@ -128,7 +131,6 @@ function acceptSuggestion(sugId: string) {
       md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + after)
     }
   } else if (sug.type === 'project' && sug.section === 'Projects') {
-    // Append new project entry at end of Projects section
     const projMatch = md.match(/(# Projects\n)([\s\S]*?)(\n---|\n# |\n*$)/)
     if (projMatch) {
       const before = projMatch[1]
@@ -137,7 +139,6 @@ function acceptSuggestion(sugId: string) {
       md = md.replace(projMatch[0], before + content + '\n\n' + sug.content + after)
     }
   } else if (sug.type === 'bullet') {
-    // Append bullet to the matching entry
     const parts = sug.section.split(':')
     const entryKey = parts[1] || ''
     if (entryKey) {
@@ -152,7 +153,6 @@ function acceptSuggestion(sugId: string) {
     }
   }
 
-  // Update result and remove suggestion
   store.updateJob(job.id, {
     result: md,
     suggestions: job.suggestions.filter(s => s.id !== sugId),
@@ -170,76 +170,58 @@ function denySuggestion(sugId: string) {
 
 <template>
   <div class="editor-layout">
-    <!-- LEFT PANEL: Jobs Only -->
+    <!-- LEFT PANEL: Active job controls + section editor -->
     <aside class="left-panel">
-      <section class="panel-section">
-        <div class="section-header">
-          <h3>Jobs</h3>
-          <button class="add-job-btn" @click="addJob">+ Add Job</button>
-        </div>
+      <!-- Active job's JD and analysis -->
+      <section v-if="activeJob" class="panel-section">
+        <JobCard
+          :job="activeJob"
+          @update:title="store.updateJob(activeJob!.id, { title: $event })"
+          @update:job-description="store.updateJob(activeJob!.id, { jobDescription: $event })"
+          @update:seniority-level="store.updateJob(activeJob!.id, { seniorityLevel: $event })"
+          @remove="removeJob(activeJob!.id)"
+        />
 
-        <div v-if="!hasJobs" class="empty-state">
-          Add a job description to start tailoring your resume.
-        </div>
-
-        <div class="job-list">
-          <JobCard
-            v-for="job in jobList"
-            :key="job.id"
-            :job="job"
-            @update:title="store.updateJob(job.id, { title: $event })"
-            @update:job-description="store.updateJob(job.id, { jobDescription: $event })"
-            @update:seniority-level="store.updateJob(job.id, { seniorityLevel: $event })"
-            @remove="removeJob(job.id)"
-          />
-        </div>
-
-        <div v-if="hasJobs" class="action-buttons">
-          <!-- Phase 1: Check (before any analysis exists) -->
+        <div class="action-buttons">
           <button
-            v-if="!hasAnalysis && !anyAnalyzing"
-            class="check-all-btn"
-            :disabled="!canCheck"
-            @click="checkAll"
+            v-if="!jobIsAnalyzed && !jobIsAnalyzing"
+            class="check-btn"
+            :disabled="!jobCanCheck"
+            @click="checkJob"
           >
-            Check All
+            Check
           </button>
-          <!-- Analyzing in progress -->
-          <button
-            v-if="anyAnalyzing"
-            class="check-all-btn"
-            disabled
-          >
+          <button v-if="jobIsAnalyzing" class="check-btn" disabled>
             Analyzing...
           </button>
-          <!-- Phase 2: Tailor (after analysis, not currently tailoring) -->
           <button
-            v-if="hasAnalysis && !anyAnalyzing && !anyTailoring"
-            class="tailor-all-btn"
-            @click="tailorAll"
+            v-if="jobIsAnalyzed && !jobIsAnalyzing && !jobIsTailoring"
+            class="tailor-btn"
+            @click="tailorCurrentJob"
           >
-            Tailor All
+            Tailor
           </button>
-          <!-- Tailoring in progress -->
-          <button
-            v-if="anyTailoring"
-            class="tailor-all-btn"
-            disabled
-          >
+          <button v-if="jobIsTailoring" class="tailor-btn" disabled>
             Tailoring...
           </button>
-          <!-- Re-check option -->
           <button
-            v-if="hasAnalysis && !anyBusy"
+            v-if="jobIsAnalyzed && !jobIsBusy"
             class="recheck-btn"
-            @click="checkAll"
+            @click="checkJob"
           >
             Re-check
           </button>
         </div>
       </section>
 
-      <!-- Section Editor in left panel -->
+      <!-- No job selected -->
+      <section v-else-if="!store.activeJobId" class="panel-section">
+        <div class="empty-state">
+          Select a job tab or click <strong>+</strong> to add one.
+        </div>
+      </section>
+
+      <!-- Section Editor -->
       <section v-if="store.markdown" class="panel-section sections-panel">
         <h3 class="sections-title">Edit Sections</h3>
         <SectionEditor
@@ -249,25 +231,24 @@ function denySuggestion(sugId: string) {
       </section>
     </aside>
 
-    <!-- RIGHT PANEL: Preview Only -->
+    <!-- RIGHT PANEL: Tabs + Preview -->
     <div class="right-panel">
       <TabBar
-        v-if="hasJobs"
         :jobs="jobList"
         :activeTab="store.activeJobId"
         @select="store.activeJobId = $event"
+        @add="addJob"
+        @remove="removeJob"
       />
 
       <div class="preview-controls">
         <button class="export-btn" @click="exportPdf">Download PDF</button>
       </div>
 
-      <!-- Error banner -->
       <div v-if="activeJob && activeJob.tailoringStatus === 'error'" class="error-banner">
         <strong>Tailoring failed:</strong> {{ activeJob.error || 'Unknown error' }}
       </div>
 
-      <!-- Empty state -->
       <div v-if="!store.markdown" class="empty-preview">
         <div class="empty-preview-content">
           <div class="empty-preview-icon">&#128196;</div>
@@ -287,21 +268,11 @@ function denySuggestion(sugId: string) {
         />
       </div>
 
-      <!-- Score Panel -->
       <ScorePanel
         v-if="activeJob"
         :scoring="activeScoring"
         :atsResult="activeAtsResult"
       />
-
-      <!-- Step guide for new users -->
-      <div v-if="!store.markdown && !hasJobs" class="step-guide">
-        <div class="step"><span class="step-num">1</span> Set up resume in Profile</div>
-        <div class="step-arrow">&rarr;</div>
-        <div class="step"><span class="step-num">2</span> Add job descriptions</div>
-        <div class="step-arrow">&rarr;</div>
-        <div class="step"><span class="step-num">3</span> Tailor &amp; export</div>
-      </div>
     </div>
   </div>
 </template>
@@ -324,44 +295,31 @@ function denySuggestion(sugId: string) {
   box-shadow: 0 2px 8px rgba(0,0,0,.05); padding: 14px;
 }
 
-.section-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px;
-}
-.section-header h3 { margin: 0; font-size: 0.95rem; }
-.add-job-btn {
-  border: 1px solid #d0d0d0; background: #fafafa; border-radius: 8px;
-  padding: 5px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
-}
-.add-job-btn:hover { background: #eee; }
-
-.job-list { display: flex; flex-direction: column; gap: 8px; }
-
 .empty-state {
   text-align: center; padding: 20px; color: #999; font-size: 0.85rem;
 }
 
 .action-buttons {
-  display: flex; gap: 8px; margin-top: 8px;
+  display: flex; gap: 8px; margin-top: 10px;
 }
-.check-all-btn, .tailor-all-btn {
-  flex: 1; padding: 11px; font-weight: 700; border-radius: 10px;
-  border: none; color: white; cursor: pointer; font-size: 0.9rem;
+.check-btn, .tailor-btn {
+  flex: 1; padding: 10px; font-weight: 700; border-radius: 10px;
+  border: none; color: white; cursor: pointer; font-size: 0.88rem;
 }
-.check-all-btn {
+.check-btn {
   background: linear-gradient(135deg, #28a745 0%, #218838 100%);
 }
-.tailor-all-btn {
+.tailor-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 .recheck-btn {
-  padding: 11px 14px; font-weight: 600; border-radius: 10px;
+  padding: 10px 14px; font-weight: 600; border-radius: 10px;
   border: 1px solid #d0d0d0; background: #fafafa; cursor: pointer;
   font-size: 0.8rem; color: #555;
 }
 .recheck-btn:hover { background: #eee; }
-.check-all-btn:disabled, .tailor-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.check-all-btn:not(:disabled):hover, .tailor-all-btn:not(:disabled):hover { opacity: 0.9; }
+.check-btn:disabled, .tailor-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.check-btn:not(:disabled):hover, .tailor-btn:not(:disabled):hover { opacity: 0.9; }
 
 .right-panel {
   flex: 1; max-width: 240mm;
@@ -395,31 +353,9 @@ function denySuggestion(sugId: string) {
 .empty-preview-content p { margin: 0; font-weight: 600; }
 .empty-preview-content small { font-size: 0.8rem; }
 
-.sections-panel {
-  padding: 12px;
-}
-.sections-title {
-  margin: 0 0 8px; font-size: 0.9rem; color: #555;
-}
-.preview-area {
-  display: flex; justify-content: center;
-}
-
-.step-guide {
-  display: flex; align-items: center; justify-content: center;
-  gap: 12px; padding: 14px; color: #999; font-size: 0.82rem;
-}
-.step {
-  display: flex; align-items: center; gap: 6px;
-  background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
-  padding: 8px 14px;
-}
-.step-num {
-  width: 22px; height: 22px; border-radius: 50%; background: #667eea;
-  color: #fff; font-weight: 700; font-size: 0.75rem;
-  display: flex; align-items: center; justify-content: center;
-}
-.step-arrow { color: #ccc; font-size: 1.2rem; }
+.sections-panel { padding: 12px; }
+.sections-title { margin: 0 0 8px; font-size: 0.9rem; color: #555; }
+.preview-area { display: flex; justify-content: center; }
 
 @media (max-width: 900px) {
   .editor-layout { flex-direction: column; align-items: stretch; }
