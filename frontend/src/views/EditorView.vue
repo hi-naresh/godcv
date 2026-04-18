@@ -58,7 +58,8 @@ const activeSuggestions = computed(() => activeJob.value?.suggestions ?? [])
 
 const hasJobs = computed(() => store.jobs.size > 0)
 const anyBusy = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running' || j.tailoringStatus === 'analyzing'))
-const anyAnalyzed = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'analyzed'))
+const hasAnalysis = computed(() => [...store.jobs.values()].some(j => j.analysis !== null))
+const allIdle = computed(() => [...store.jobs.values()].every(j => j.tailoringStatus === 'idle'))
 const canCheck = computed(() =>
   hasJobs.value &&
   [...store.jobs.values()].some(j => j.jobDescription.trim()) &&
@@ -180,7 +181,7 @@ function denySuggestion(sugId: string) {
 
         <div v-if="hasJobs" class="action-buttons">
           <button
-            v-if="!anyAnalyzed"
+            v-if="!hasAnalysis"
             class="check-all-btn"
             :disabled="!canCheck || anyBusy"
             @click="checkAll"
@@ -188,12 +189,19 @@ function denySuggestion(sugId: string) {
             {{ anyBusy ? 'Analyzing...' : 'Check All' }}
           </button>
           <button
-            v-if="anyAnalyzed"
+            v-if="hasAnalysis"
             class="tailor-all-btn"
             :disabled="anyBusy"
             @click="tailorAll"
           >
             {{ anyBusy ? 'Tailoring...' : 'Tailor All' }}
+          </button>
+          <button
+            v-if="hasAnalysis && !anyBusy"
+            class="recheck-btn"
+            @click="checkAll"
+          >
+            Re-check
           </button>
         </div>
       </section>
@@ -313,6 +321,12 @@ function denySuggestion(sugId: string) {
 .tailor-all-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
+.recheck-btn {
+  padding: 11px 14px; font-weight: 600; border-radius: 10px;
+  border: 1px solid #d0d0d0; background: #fafafa; cursor: pointer;
+  font-size: 0.8rem; color: #555;
+}
+.recheck-btn:hover { background: #eee; }
 .check-all-btn:disabled, .tailor-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .check-all-btn:not(:disabled):hover, .tailor-all-btn:not(:disabled):hover { opacity: 0.9; }
 
