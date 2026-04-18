@@ -261,6 +261,7 @@ function denySuggestion(sugId: string) {
       <div v-else class="preview-area">
         <ResumePreview
           :markdown="activeMarkdown"
+          :originalMarkdown="activeJob?.result ? store.markdown : undefined"
           :pageMode="currentPageMode"
           :agentStatuses="activeAgentStatuses"
           :suggestions="activeSuggestions"

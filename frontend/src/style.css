@@ -76,9 +76,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   break-inside: avoid;
 }
 
-/* Suggested content highlights */
-.sheet-content .suggestion {
+/* Changed/refined content highlights (green) */
+.sheet-content .changed-content {
   background: #e6ffe6;
+  border-left: 2px solid #28a745;
+  padding-left: 4px;
+}
+
+/* Suggested content highlights (orange) */
+.sheet-content .suggestion {
+  background: #fff3e0;
   padding: 0 3px;
   border-radius: 2px;
   position: relative;
@@ -86,7 +93,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 }
 .sheet-content li.suggestion,
 .sheet-content .suggestion-project {
-  border-left: 2px solid #28a745;
+  border-left: 2px solid #f0ad4e;
   padding-left: 4px;
 }
 .sheet-content .suggestion-project {
@@ -95,7 +102,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   white-space: pre-line;
 }
 .sheet-content .suggestion:hover {
-  background: #d0f5d0;
+  background: #ffe8c2;
 }
 
 /* Accept/Deny tooltip — inline at end of text, shown on hover */
@@ -154,8 +161,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   line-height: 1;
   vertical-align: middle;
 }
-.sheet-content .sug-accept { color: #28a745; }
-.sheet-content .sug-accept:hover { background: #c8f7c8; }
+.sheet-content .sug-accept { color: #e67e22; }
+.sheet-content .sug-accept:hover { background: #fff3e0; }
 .sheet-content .sug-deny { color: #dc3545; }
 .sheet-content .sug-deny:hover { background: #fdd; }
 
@@ -168,7 +175,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   .error-banner, .export-btn, .preview-label, .empty-preview,
   .empty-state, .warn, .refining-badge, .sug-tooltip { display: none !important; }
 
-  .suggestion, .suggestion-remove, .suggestion-replace {
+  .changed-content, .suggestion, .suggestion-remove, .suggestion-replace {
     background: none !important;
     border-left: none !important;
     padding: 0 !important;

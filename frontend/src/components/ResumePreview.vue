@@ -5,6 +5,7 @@ import type { Suggestion } from '../stores/editor'
 
 const props = defineProps<{
   markdown: string
+  originalMarkdown?: string
   pageMode: 'single' | 'multi'
   agentStatuses?: Record<string, 'pending' | 'running' | 'done'>
   suggestions?: Suggestion[]
@@ -113,14 +114,65 @@ function injectSuggestion(html: string, sug: Suggestion): string {
   return html
 }
 
+// Build a set of normalized text lines from rendered HTML for diffing
+function extractTextLines(html: string): Set<string> {
+  const lines = new Set<string>()
+  // Extract text from <li> elements
+  const liRegex = /<li>([\s\S]*?)<\/li>/gi
+  let m
+  while ((m = liRegex.exec(html)) !== null) {
+    const text = m[1].replace(/<[^>]+>/g, '').trim()
+    if (text) lines.add(text)
+  }
+  // Extract text from <p> elements (summary, skills lines)
+  const pRegex = /<p>([\s\S]*?)<\/p>/gi
+  while ((m = pRegex.exec(html)) !== null) {
+    const text = m[1].replace(/<[^>]+>/g, '').trim()
+    if (text.length > 20) lines.add(text) // skip tiny fragments
+  }
+  return lines
+}
+
+function highlightChanges(tailoredHtml: string, originalHtml: string): string {
+  const originalLines = extractTextLines(originalHtml)
+
+  // Highlight <li> elements whose text differs from original
+  let html = tailoredHtml.replace(/<li>([\s\S]*?)<\/li>/gi, (match, inner) => {
+    const text = inner.replace(/<[^>]+>/g, '').trim()
+    if (!text || originalLines.has(text)) return match
+    // Check if it's already a suggestion (don't double-highlight)
+    if (match.includes('class="suggestion') || match.includes('class="sug')) return match
+    return `<li class="changed-content">${inner}</li>`
+  })
+
+  // Highlight <p> elements in summary/skills that changed
+  html = html.replace(/<p>([\s\S]*?)<\/p>/gi, (match, inner) => {
+    const text = inner.replace(/<[^>]+>/g, '').trim()
+    if (!text || text.length <= 20 || originalLines.has(text)) return match
+    if (match.includes('class="suggestion') || match.includes('class="sug')) return match
+    // Don't highlight header meta (name, title, links)
+    if (match.includes('class="meta"') || match.includes('class="name"') || match.includes('class="role"')) return match
+    return `<p class="changed-content">${inner}</p>`
+  })
+
+  return html
+}
+
 const renderedHtml = computed(() => {
   let html = renderResume(props.markdown)
+
+  // Highlight content that differs from original
+  if (props.originalMarkdown && props.originalMarkdown !== props.markdown) {
+    const originalHtml = renderResume(props.originalMarkdown)
+    html = highlightChanges(html, originalHtml)
+  }
+
   // Inject refining badges into section h1 headers
   for (const section of refiningSections.value) {
     const regex = new RegExp(`(<h1>)(${section})(</h1>)`, 'i')
     html = html.replace(regex, `$1$2 <span class="refining-badge">refining...</span>$3`)
   }
-  // Inject suggestion content as green-highlighted spans
+  // Inject suggestion content
   if (props.suggestions?.length) {
     for (const sug of props.suggestions) {
       html = injectSuggestion(html, sug)
