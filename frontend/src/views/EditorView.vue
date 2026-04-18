@@ -215,9 +215,10 @@ function denySuggestion(sugId: string) {
       </section>
 
       <!-- No job selected -->
-      <section v-else-if="!store.activeJobId" class="panel-section">
+      <section v-else class="panel-section">
         <div class="empty-state">
-          Select a job tab or click <strong>+</strong> to add one.
+          <p>Select a job tab or add a new one.</p>
+          <button class="add-job-btn" @click="addJob">+ New Job</button>
         </div>
       </section>
 
@@ -297,7 +298,13 @@ function denySuggestion(sugId: string) {
 
 .empty-state {
   text-align: center; padding: 20px; color: #999; font-size: 0.85rem;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
 }
+.add-job-btn {
+  border: 1px solid #d0d0d0; background: #fafafa; border-radius: 8px;
+  padding: 8px 16px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.add-job-btn:hover { background: #eee; }
 
 .action-buttons {
   display: flex; gap: 8px; margin-top: 10px;
