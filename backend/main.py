@@ -26,7 +26,7 @@ app = FastAPI(title="GodCV", version="1.0.0", lifespan=lifespan)
 # CORS for dev mode
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,7 +46,7 @@ async def health():
 
 # Serve frontend (production)
 dist_path = Path(FRONTEND_DIST)
-if dist_path.exists():
+if dist_path.exists() and (dist_path / "index.html").exists():
     app.mount("/assets", StaticFiles(directory=str(dist_path / "assets")), name="static")
 
     @app.get("/{full_path:path}")
@@ -55,3 +55,17 @@ if dist_path.exists():
         if file_path.is_file():
             return FileResponse(file_path)
         return FileResponse(dist_path / "index.html")
+else:
+    from fastapi.responses import HTMLResponse
+
+    @app.get("/")
+    async def no_frontend():
+        return HTMLResponse(
+            "<h2>GodCV API is running</h2>"
+            "<p>Frontend not built yet. Run:</p>"
+            "<pre>cd frontend &amp;&amp; npm install &amp;&amp; npm run build</pre>"
+            "<p>Then restart the server. Or run the frontend dev server separately:</p>"
+            "<pre>cd frontend &amp;&amp; npm run dev</pre>"
+            f"<p><small>Looking for dist at: {dist_path}</small></p>",
+            status_code=200,
+        )

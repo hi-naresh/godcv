@@ -9,29 +9,22 @@
 ## Quick Start
 
 ```bash
-# Clone the repo
+# Clone and install
 git clone https://github.com/hi-naresh/godcv.git
 cd godcv
-
-# Backend setup
 python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -e .
 
-# Frontend setup
-cd frontend
-npm install
-cd ..
-
 # Configure
 echo "GEMINI_API_KEY=your_key_here" > .env
 
-# Run (two terminals)
-godcv run --dev          # Backend on :9000
-cd frontend && npm run dev  # Frontend on :3000
+# Build frontend and run
+godcv build
+godcv run
 ```
 
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:9000` in your browser. Single process, everything served from one port.
 
 ## Detailed Setup
 

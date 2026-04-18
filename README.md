@@ -29,17 +29,16 @@ AI-powered resume tailoring system that analyzes job descriptions and rewrites y
 ## Quick Start
 
 ```bash
-# Backend
+git clone https://github.com/hi-naresh/godcv.git
+cd godcv
 python -m venv venv && source venv/bin/activate
 pip install -e .
 echo "GEMINI_API_KEY=your_key" > .env
-godcv run --dev
-
-# Frontend (separate terminal)
-cd frontend && npm install && npm run dev
+godcv build   # builds the frontend
+godcv run     # starts everything on :9000
 ```
 
-Open `http://localhost:3000`
+Open `http://localhost:9000`
 
 See [Setup Guide](docs/setup.md) for detailed instructions.
 
