@@ -75,7 +75,8 @@ class GeminiClient:
 
         finish_reason = candidates[0].get("finishReason", "")
         if finish_reason == "MAX_TOKENS":
-            logger.warning("Gemini response truncated (MAX_TOKENS). Output length: %d chars", len(text))
+            prompt_hint = prompt[:80].replace('\n', ' ')
+            logger.warning("Gemini response truncated (MAX_TOKENS). Output: %d chars. Prompt starts: '%s...'", len(text), prompt_hint)
 
         return self._clean_response(text)
 

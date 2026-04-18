@@ -9,7 +9,7 @@ GEMINI_GENERATION_CONFIG = {
     "temperature": 0.7,
     "topK": 40,
     "topP": 0.95,
-    "maxOutputTokens": 8192,
+    "maxOutputTokens": 16384,
 }
 GEMINI_SAFETY_SETTINGS = [
     {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
