@@ -105,6 +105,9 @@ export function useTailor() {
     if (!job) return
 
     switch (event) {
+      case 'status':
+        store.updateJob(jobId, { statusMessage: data.message as string })
+        break
       case 'plan': {
         const plan = data.tool_calls as any[]
         const analysis = data.analysis as Record<string, unknown> | undefined
@@ -166,11 +169,12 @@ export function useTailor() {
         break
       }
       case 'analysis_complete':
-        store.updateJob(jobId, { tailoringStatus: 'analyzed' })
+        store.updateJob(jobId, { tailoringStatus: 'analyzed', statusMessage: null })
         break
       case 'complete':
         store.updateJob(jobId, {
           tailoringStatus: 'done',
+          statusMessage: null,
           result: data.markdown as string,
         })
         break
@@ -203,7 +207,100 @@ export function useTailor() {
   }
 
   function tailorJob(jobId: string, apiKey?: string, resumeOverride?: string) {
-    startTailoring(jobId, apiKey, resumeOverride, false)
+    const job = store.jobs.get(jobId)
+    if (!job) return
+
+    // If we have an existing plan from analysis, use /execute to skip re-analysis
+    if (job.tailoringPlan && job.analysis) {
+      const existingPlan = {
+        tool_calls: job.tailoringPlan,
+        sections_unchanged: [],
+        section_order: null,
+        scoring: job.scoring ? { before: job.scoring.before, gap_suggestions: job.scoring.gap_suggestions } : {},
+        analysis: job.analysis,
+      }
+
+      // Reset only tailoring artifacts, keep analysis
+      store.updateJob(jobId, {
+        tailoringStatus: 'running',
+        statusMessage: 'Starting tailoring...',
+        agentStatuses: {},
+        result: null,
+        error: null,
+        atsResult: null,
+        suggestions: [],
+      })
+
+      const body: Record<string, any> = {
+        job_description: job.jobDescription,
+        plan: existingPlan,
+      }
+      if (apiKey) body.gemini_api_key = apiKey
+      if (resumeOverride) body.resume_override = resumeOverride
+      if (job.seniorityLevel) body.seniority_level = job.seniorityLevel
+
+      fetch('/api/tailor/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(async (response) => {
+        if (!response.ok) {
+          let message = `Server error (${response.status})`
+          try {
+            const errorData = await response.json()
+            message = errorData.detail || errorData.message || message
+          } catch {
+            message = `${response.status}: ${response.statusText || 'Unknown error'}`
+          }
+          store.updateJob(jobId, { tailoringStatus: 'error', statusMessage: null, error: message })
+          return
+        }
+
+        const reader = response.body?.getReader()
+        if (!reader) {
+          store.updateJob(jobId, { tailoringStatus: 'error', statusMessage: null, error: 'No response stream' })
+          return
+        }
+
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          let eventType = ''
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim()
+            } else if (line.startsWith('data: ') && eventType) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                handleEvent(jobId, eventType, data)
+              } catch (e) {
+                console.warn(`[GodCV] Failed to parse SSE data for event "${eventType}"`)
+              }
+              eventType = ''
+            }
+          }
+        }
+
+        const finalJob = store.jobs.get(jobId)
+        if (finalJob && finalJob.tailoringStatus === 'running') {
+          store.updateJob(jobId, { tailoringStatus: 'error', statusMessage: null, error: 'Connection closed' })
+        }
+      }).catch((err) => {
+        const message = err instanceof TypeError
+          ? 'Cannot connect to server. Is the backend running?'
+          : (err.message || 'Unknown network error')
+        store.updateJob(jobId, { tailoringStatus: 'error', statusMessage: null, error: message })
+      })
+    } else {
+      // No existing plan — run full tailoring
+      startTailoring(jobId, apiKey, resumeOverride, false)
+    }
   }
 
   return { startTailoring, startBatchAnalysis, startBatchTailoring, analyzeJob, tailorJob }

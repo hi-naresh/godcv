@@ -2,7 +2,7 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from backend.db.models import TailorRequest
+from backend.db.models import TailorRequest, ExecuteRequest
 from backend.services import profile as profile_service
 from backend.services.parser import parse_resume
 from backend.services.assembler import assemble_resume
@@ -168,6 +168,134 @@ async def tailor_resume(request: TailorRequest):
                         modified_sections=learning.get("sections_modified", []),
                     )
 
+                    await profile_service.save_tailoring(
+                        profile_id=profile_id,
+                        job_title=learning.get("job_title"),
+                        company=learning.get("company"),
+                        job_description=job_description,
+                        original_resume=resume_md,
+                        tailored_resume=tailored_md,
+                        orchestrator_plan=plan,
+                        role_type=learning.get("role_type"),
+                        sections_modified=sections_modified,
+                    )
+                except Exception as e:
+                    yield _sse_event("error", {"message": f"Learning failed (resume still tailored): {str(e)}"})
+
+        except Exception as e:
+            yield _sse_event("error", {"message": str(e)})
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/execute")
+async def execute_tailoring(request: ExecuteRequest):
+    """Execute tailoring using an existing orchestrator plan (skips re-analysis)."""
+    api_key = request.gemini_api_key or ""
+    profile = await profile_service.get_profile()
+    if not api_key and profile:
+        api_key = profile.get("gemini_api_key", "")
+    if not api_key:
+        api_key = GEMINI_API_KEY
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No Gemini API key configured.")
+
+    resume_md = request.resume_override
+    if not resume_md and profile:
+        resume_md = profile.get("master_resume", "")
+    if not resume_md:
+        raise HTTPException(status_code=400, detail="No resume available.")
+
+    job_description = request.job_description
+    profile_id = profile["id"] if profile else None
+    plan = request.plan
+
+    async def event_stream():
+        try:
+            gemini = GeminiClient(api_key)
+            tool_calls = plan.get("tool_calls", [])
+            sections_unchanged = plan.get("sections_unchanged", [])
+
+            # Phase 1: Parse resume
+            yield _sse_event("status", {"phase": "parsing", "message": "Parsing resume..."})
+            parsed = parse_resume(resume_md)
+
+            # Phase 2: Dispatch agents
+            active_calls = [c for c in tool_calls if c.get("action") != "keep"]
+            for call in active_calls:
+                agent_name = call["agent"]
+                entry = call.get("entry", "")
+                label = f"{agent_name}:{entry}" if entry else agent_name
+                yield _sse_event("agent_start", {"agent": label})
+
+            bus = AgentBus(gemini)
+            result = await bus.dispatch(tool_calls, parsed["sections"], job_description)
+
+            if result:
+                for key in result.get("modified_sections", {}):
+                    preview = result["modified_sections"][key][:100]
+                    yield _sse_event("agent_done", {"agent": key.lower(), "preview": preview})
+                for key in result.get("modified_entries", {}):
+                    preview = result["modified_entries"][key][:100]
+                    yield _sse_event("agent_done", {"agent": f"experience:{key}", "preview": preview})
+
+            # Phase 3: Assembly
+            yield _sse_event("status", {"phase": "assembly", "message": "Assembling final resume..."})
+            modified_sections = result["modified_sections"] if result else {}
+            modified_entries = result["modified_entries"] if result else {}
+            excluded_entries = result.get("excluded_entries", set()) if result else set()
+            section_order = plan.get("section_order")
+            tailored_md = assemble_resume(parsed, modified_sections, modified_entries, section_order, excluded_entries)
+
+            sections_modified = list(modified_sections.keys()) + [f"experience:{k}" for k in modified_entries]
+            yield _sse_event("complete", {
+                "markdown": tailored_md,
+                "sections_modified": len(sections_modified),
+                "sections_kept": len(sections_unchanged),
+            })
+
+            # Phase 4: Score the tailored resume
+            try:
+                yield _sse_event("status", {"phase": "scoring_after", "message": "Scoring tailored resume..."})
+                scorer = ResumeScorerAgent(gemini)
+                after_scores = await scorer.score(tailored_md, job_description)
+                yield _sse_event("scoring_after", after_scores)
+            except Exception as e:
+                logger.error("After-scoring failed: %s", e)
+
+            # Phase 5: Generate suggestions
+            gap_suggestions = plan.get("scoring", {}).get("gap_suggestions", [])
+            if gap_suggestions:
+                try:
+                    yield _sse_event("status", {"phase": "suggestions", "message": "Generating suggestions..."})
+                    sug_agent = SuggestionAgent(gemini)
+                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description, resume_md)
+                    if suggestions:
+                        yield _sse_event("suggestions", {"items": suggestions})
+                except Exception as e:
+                    logger.error("Suggestion generation failed: %s", e)
+
+            # Phase 6: ATS Scoring
+            try:
+                yield _sse_event("status", {"phase": "ats_scoring", "message": "Running ATS analysis..."})
+                ats_agent = ATSScorerAgent(gemini)
+                ats_result = await ats_agent.score(tailored_md, job_description)
+                yield _sse_event("ats_score", ats_result)
+            except Exception as e:
+                logger.error("ATS scoring failed: %s", e)
+
+            # Phase 7: Learn
+            if profile_id:
+                try:
+                    learner = ProfileLearnerAgent(gemini)
+                    learning = await learner.learn(resume_md, tailored_md, job_description, plan)
+                    await profile_service.upsert_role_insight(
+                        profile_id=profile_id,
+                        role_type=learning.get("role_type", "general"),
+                        strongest_points=learning.get("strongest_points", []),
+                        preferred_skill_order=learning.get("preferred_skill_order", []),
+                        modified_sections=learning.get("sections_modified", []),
+                    )
                     await profile_service.save_tailoring(
                         profile_id=profile_id,
                         job_title=learning.get("job_title"),

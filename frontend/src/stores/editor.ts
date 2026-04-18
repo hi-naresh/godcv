@@ -67,6 +67,7 @@ export interface JobState {
   jobDescription: string
   seniorityLevel: SeniorityLevel | null
   tailoringStatus: 'idle' | 'analyzing' | 'analyzed' | 'running' | 'done' | 'error'
+  statusMessage: string | null
   tailoringPlan: ToolCall[] | null
   agentStatuses: Record<string, 'pending' | 'running' | 'done'>
   result: string | null
@@ -95,6 +96,7 @@ export const useEditorStore = defineStore('editor', () => {
       jobDescription: '',
       seniorityLevel: null,
       tailoringStatus: 'idle',
+      statusMessage: null,
       tailoringPlan: null,
       agentStatuses: {},
       result: null,
@@ -127,6 +129,7 @@ export const useEditorStore = defineStore('editor', () => {
   function resetJobTailoring(id: string) {
     updateJob(id, {
       tailoringStatus: 'idle',
+      statusMessage: null,
       tailoringPlan: null,
       agentStatuses: {},
       result: null,

@@ -44,6 +44,14 @@ class TailorRequest(BaseModel):
     analyze_only: bool = False
 
 
+class ExecuteRequest(BaseModel):
+    job_description: str
+    resume_override: str | None = None
+    gemini_api_key: str | None = None
+    seniority_level: str | None = None
+    plan: dict
+
+
 class TailoringHistoryResponse(BaseModel):
     id: int
     profile_id: int

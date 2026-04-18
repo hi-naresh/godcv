@@ -56,6 +56,10 @@ const fitWarning = computed(() => {
       @input="onJdInput(($event.target as HTMLTextAreaElement).value)"
       placeholder="Paste job description here..."
     />
+    <!-- Live status message -->
+    <div v-if="job.statusMessage" class="status-message">
+      {{ job.statusMessage }}
+    </div>
     <div v-if="job.tailoringStatus === 'error' && job.error" class="error-message">
       {{ job.error }}
     </div>
@@ -139,6 +143,12 @@ const fitWarning = computed(() => {
   border: 1px dashed #c9c9c9; border-radius: 8px; font-size: 0.8rem;
 }
 .jd-textarea:focus { outline: none; border-color: #667eea; }
+.status-message {
+  background: #eef0ff; border: 1px solid #d0d5f0; border-radius: 6px;
+  padding: 5px 8px; font-size: 0.75rem; color: #667eea; font-weight: 500;
+  animation: pulse-status 1.5s ease-in-out infinite;
+}
+@keyframes pulse-status { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 .error-message {
   background: #fff0f0; border: 1px solid #fcc; border-radius: 6px;
   padding: 6px 8px; font-size: 0.78rem; color: #c00; line-height: 1.3;
