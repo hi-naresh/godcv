@@ -50,16 +50,16 @@ const fitWarning = computed(() => {
       <span v-else-if="job.tailoringStatus === 'error'" class="status-badge error">Error</span>
       <button class="remove-btn" @click="$emit('remove')" title="Remove job">&times;</button>
     </div>
+    <!-- Live status message -->
+    <div v-if="job.statusMessage" class="status-message">
+      {{ job.statusMessage }}
+    </div>
     <textarea
       class="jd-textarea"
       :value="job.jobDescription"
       @input="onJdInput(($event.target as HTMLTextAreaElement).value)"
       placeholder="Paste job description here..."
     />
-    <!-- Live status message -->
-    <div v-if="job.statusMessage" class="status-message">
-      {{ job.statusMessage }}
-    </div>
     <div v-if="job.tailoringStatus === 'error' && job.error" class="error-message">
       {{ job.error }}
     </div>

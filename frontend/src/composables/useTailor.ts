@@ -8,7 +8,10 @@ export function useTailor() {
     if (!job) return
 
     store.resetJobTailoring(jobId)
-    store.updateJob(jobId, { tailoringStatus: analyzeOnly ? 'analyzing' : 'running' })
+    store.updateJob(jobId, {
+      tailoringStatus: analyzeOnly ? 'analyzing' : 'running',
+      statusMessage: analyzeOnly ? 'Analyzing job requirements...' : 'Starting tailoring...',
+    })
 
     const body: Record<string, any> = { job_description: job.jobDescription }
     if (apiKey) body.gemini_api_key = apiKey
