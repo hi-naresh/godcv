@@ -57,9 +57,10 @@ const activeAtsResult = computed(() => activeJob.value?.atsResult ?? null)
 const activeSuggestions = computed(() => activeJob.value?.suggestions ?? [])
 
 const hasJobs = computed(() => store.jobs.size > 0)
-const anyBusy = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running' || j.tailoringStatus === 'analyzing'))
+const anyAnalyzing = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'analyzing'))
+const anyTailoring = computed(() => [...store.jobs.values()].some(j => j.tailoringStatus === 'running'))
+const anyBusy = computed(() => anyAnalyzing.value || anyTailoring.value)
 const hasAnalysis = computed(() => [...store.jobs.values()].some(j => j.analysis !== null))
-const allIdle = computed(() => [...store.jobs.values()].every(j => j.tailoringStatus === 'idle'))
 const canCheck = computed(() =>
   hasJobs.value &&
   [...store.jobs.values()].some(j => j.jobDescription.trim()) &&
@@ -84,7 +85,21 @@ function tailorAll() {
   if (firstJob) store.activeJobId = firstJob
 }
 
-function exportPdf() { window.print() }
+async function exportPdf() {
+  const sheet = document.querySelector('.sheet') as HTMLElement
+  if (!sheet) return
+  const html2pdf = (await import('html2pdf.js')).default
+  html2pdf()
+    .set({
+      margin: 0,
+      filename: 'resume.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    })
+    .from(sheet)
+    .save()
+}
 
 function acceptSuggestion(sugId: string) {
   const job = activeJob.value
@@ -180,22 +195,40 @@ function denySuggestion(sugId: string) {
         </div>
 
         <div v-if="hasJobs" class="action-buttons">
+          <!-- Phase 1: Check (before any analysis exists) -->
           <button
-            v-if="!hasAnalysis"
+            v-if="!hasAnalysis && !anyAnalyzing"
             class="check-all-btn"
-            :disabled="!canCheck || anyBusy"
+            :disabled="!canCheck"
             @click="checkAll"
           >
-            {{ anyBusy ? 'Analyzing...' : 'Check All' }}
+            Check All
           </button>
+          <!-- Analyzing in progress -->
           <button
-            v-if="hasAnalysis"
+            v-if="anyAnalyzing"
+            class="check-all-btn"
+            disabled
+          >
+            Analyzing...
+          </button>
+          <!-- Phase 2: Tailor (after analysis, not currently tailoring) -->
+          <button
+            v-if="hasAnalysis && !anyAnalyzing && !anyTailoring"
             class="tailor-all-btn"
-            :disabled="anyBusy"
             @click="tailorAll"
           >
-            {{ anyBusy ? 'Tailoring...' : 'Tailor All' }}
+            Tailor All
           </button>
+          <!-- Tailoring in progress -->
+          <button
+            v-if="anyTailoring"
+            class="tailor-all-btn"
+            disabled
+          >
+            Tailoring...
+          </button>
+          <!-- Re-check option -->
           <button
             v-if="hasAnalysis && !anyBusy"
             class="recheck-btn"
@@ -226,7 +259,7 @@ function denySuggestion(sugId: string) {
       />
 
       <div class="preview-controls">
-        <button class="export-btn" @click="exportPdf">Print / PDF</button>
+        <button class="export-btn" @click="exportPdf">Download PDF</button>
       </div>
 
       <!-- Error banner -->
