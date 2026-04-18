@@ -129,6 +129,21 @@ describe('parseExperienceEntries', () => {
     expect(entries[0].content).toContain('- Did some work.')
   })
 
+  it('parses experience entry with Stack Used line', () => {
+    const content =
+      '**AI Engineer — Acme Corp** *Jan 2024 – Present*\n' +
+      '**Stack Used:** Python, FastAPI, LangChain\n' +
+      '- Built AI pipeline.'
+
+    const entries = parseExperienceEntries(content)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].role).toBe('AI Engineer')
+    expect(entries[0].company).toBe('Acme Corp')
+    expect(entries[0].stackUsed).toEqual(['Python', 'FastAPI', 'LangChain'])
+    expect(entries[0].content).toBe('- Built AI pipeline.')
+    expect(entries[0].content).not.toContain('Stack Used')
+  })
+
   it('handles hyphen separator between role and company', () => {
     const content =
       '**Student Software Engineer (Intern) - SAILC AURO, Surat, IN (University)** *Jan 2022 – Dec 2023*\n' +
@@ -157,7 +172,7 @@ describe('assembleExperienceEntries', () => {
 
     const result = assembleExperienceEntries(entries)
     expect(result).toBe(
-      '**Founding AI Engineer — NestDore** *October 2025 – March 2026*\n- Building the core engine.'
+      '**Founding AI Engineer — NestDore** *October 2025 – March 2026*  \n- Building the core engine.'
     )
   })
 
@@ -173,7 +188,27 @@ describe('assembleExperienceEntries', () => {
     ]
 
     const result = assembleExperienceEntries(entries)
-    expect(result).toBe('**Software Engineer — Acme Corp**\n- Did some work.')
+    expect(result).toBe('**Software Engineer — Acme Corp**  \n- Did some work.')
+  })
+
+  it('assembles entry with stackUsed', () => {
+    const entries: EntryData[] = [
+      {
+        key: '1',
+        header: '',
+        content: '- Built AI pipeline.',
+        role: 'AI Engineer',
+        company: 'Acme Corp',
+        startDate: 'Jan 2024',
+        endDate: 'Present',
+        stackUsed: ['Python', 'FastAPI', 'LangChain'],
+      },
+    ]
+
+    const result = assembleExperienceEntries(entries)
+    expect(result).toBe(
+      '**AI Engineer — Acme Corp** *Jan 2024 – Present*  \n**Stack Used:** Python, FastAPI, LangChain  \n- Built AI pipeline.'
+    )
   })
 
   it('assembles multiple entries separated by blank lines', () => {
@@ -200,8 +235,8 @@ describe('assembleExperienceEntries', () => {
 
     const result = assembleExperienceEntries(entries)
     expect(result).toBe(
-      '**Role A — Company A** *Jan 2024 – Present*\n- Task A.\n\n' +
-      '**Role B — Company B** *Jan 2023 – Dec 2023*\n- Task B.'
+      '**Role A — Company A** *Jan 2024 – Present*  \n- Task A.\n\n' +
+      '**Role B — Company B** *Jan 2023 – Dec 2023*  \n- Task B.'
     )
   })
 })
@@ -276,7 +311,7 @@ describe('assembleEducationEntries', () => {
 
     const result = assembleEducationEntries(entries)
     expect(result).toBe(
-      '**M.Sc. in AI - Brunel University** *Jan 2025 – Jan 2026*\n***Coursework**:* Predictive Analytics.'
+      '**M.Sc. in AI - Brunel University** *Jan 2025 – Jan 2026*  \n***Coursework**:* Predictive Analytics.'
     )
   })
 
@@ -363,7 +398,7 @@ describe('assembleProjectEntries', () => {
 
     const result = assembleProjectEntries(entries)
     expect(result).toBe(
-      '**[Luxury Concierge](https://kaiconcierge.ai)** | Stack - Python, LangChain, FastAPI\n- Multi-agent system.'
+      '**[Luxury Concierge](https://kaiconcierge.ai)** **| Stack -** Python, LangChain, FastAPI\n- Multi-agent system.'
     )
   })
 
@@ -380,7 +415,7 @@ describe('assembleProjectEntries', () => {
 
     const result = assembleProjectEntries(entries)
     expect(result).toBe(
-      '**Benchmark Analysis** | Stack - Python, R\n- Built pipeline.'
+      '**Benchmark Analysis** **| Stack -** Python, R\n- Built pipeline.'
     )
   })
 })
@@ -554,6 +589,21 @@ describe('round-trip: parse then assemble then re-parse', () => {
     expect(reparsed[0].role).toBe('Founding AI Engineer')
     expect(reparsed[0].company).toBe('NestDore (London based startup, ~10 people)')
     expect(reparsed[1].role).toBe('AI/ML Engineer (Part-Time)')
+  })
+
+  it('experience entries with stackUsed survive round-trip', () => {
+    const original =
+      '**AI Engineer — Acme Corp** *Jan 2024 – Present*\n' +
+      '**Stack Used:** Python, FastAPI, LangChain\n' +
+      '- Built AI pipeline.'
+
+    const entries = parseExperienceEntries(original)
+    const assembled = assembleExperienceEntries(entries)
+    const reparsed = parseExperienceEntries(assembled)
+    expect(reparsed).toHaveLength(1)
+    expect(reparsed[0].role).toBe('AI Engineer')
+    expect(reparsed[0].stackUsed).toEqual(['Python', 'FastAPI', 'LangChain'])
+    expect(reparsed[0].content).toBe('- Built AI pipeline.')
   })
 
   it('skill categories survive round-trip', () => {

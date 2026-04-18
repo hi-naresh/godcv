@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { EntryData } from '../utils/sectionParsers'
+import ChipInput from './ChipInput.vue'
 
 const props = defineProps<{ entry: EntryData }>()
 const emit = defineEmits<{ 'update:entry': [value: EntryData]; remove: [] }>()
@@ -32,6 +33,14 @@ function update(fields: Partial<EntryData>) {
             <label>End Date</label>
             <input :value="entry.endDate" @input="update({ endDate: ($event.target as HTMLInputElement).value })" placeholder="e.g. Present" />
           </div>
+        </div>
+        <div class="field">
+          <label>Stack Used</label>
+          <ChipInput
+            :modelValue="entry.stackUsed || []"
+            @update:modelValue="update({ stackUsed: $event })"
+            placeholder="Type a tech and press Enter"
+          />
         </div>
       </div>
       <button class="entry-remove-btn" @click="$emit('remove')" title="Remove entry">&times;</button>

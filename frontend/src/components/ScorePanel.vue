@@ -38,10 +38,13 @@ const categoryLabels: Record<string, string> = {
         <span class="quick-score" :style="{ color: scoreColor(scoring.before.overall_fit) }">
           Before: {{ scoring.before.overall_fit }}%
         </span>
-        <span class="score-arrow">-></span>
-        <span class="quick-score" :style="{ color: scoreColor(scoring.predicted_after.overall_fit) }">
-          After: {{ scoring.predicted_after.overall_fit }}%
-        </span>
+        <template v-if="scoring.after">
+          <span class="score-arrow">-></span>
+          <span class="quick-score" :style="{ color: scoreColor(scoring.after.overall_fit) }">
+            After: {{ scoring.after.overall_fit }}%
+          </span>
+        </template>
+        <span v-else class="quick-score scoring-pending">After: ...</span>
       </template>
       <span v-if="atsResult" class="ats-badge" :style="{ background: scoreColor(atsResult.ats_score) }">
         ATS: {{ atsResult.ats_score }}
@@ -73,21 +76,26 @@ const categoryLabels: Record<string, string> = {
 
         <div class="score-column">
           <h4>After Tailoring</h4>
-          <div class="score-row">
-            <span class="score-label">Keyword Match</span>
-            <span class="score-value" :style="{ color: scoreColor(scoring.predicted_after.keyword_match) }">{{ scoring.predicted_after.keyword_match }}%</span>
-          </div>
-          <div class="score-row">
-            <span class="score-label">Skills Coverage</span>
-            <span class="score-value" :style="{ color: scoreColor(scoring.predicted_after.skills_coverage) }">{{ scoring.predicted_after.skills_coverage }}%</span>
-          </div>
-          <div class="score-row">
-            <span class="score-label">Experience Fit</span>
-            <span class="score-detail">{{ scoring.predicted_after.experience_fit }}</span>
-          </div>
-          <div class="score-row">
-            <span class="score-label">Overall Fit</span>
-            <span class="score-value big" :style="{ color: scoreColor(scoring.predicted_after.overall_fit) }">{{ scoring.predicted_after.overall_fit }}%</span>
+          <template v-if="scoring.after">
+            <div class="score-row">
+              <span class="score-label">Keyword Match</span>
+              <span class="score-value" :style="{ color: scoreColor(scoring.after.keyword_match) }">{{ scoring.after.keyword_match }}%</span>
+            </div>
+            <div class="score-row">
+              <span class="score-label">Skills Coverage</span>
+              <span class="score-value" :style="{ color: scoreColor(scoring.after.skills_coverage) }">{{ scoring.after.skills_coverage }}%</span>
+            </div>
+            <div class="score-row">
+              <span class="score-label">Experience Fit</span>
+              <span class="score-detail">{{ scoring.after.experience_fit }}</span>
+            </div>
+            <div class="score-row">
+              <span class="score-label">Overall Fit</span>
+              <span class="score-value big" :style="{ color: scoreColor(scoring.after.overall_fit) }">{{ scoring.after.overall_fit }}%</span>
+            </div>
+          </template>
+          <div v-else class="scoring-loading">
+            <span class="loading-text">Scoring tailored resume...</span>
           </div>
         </div>
       </div>
@@ -164,6 +172,11 @@ const categoryLabels: Record<string, string> = {
 .ats-score-num { width: 28px; text-align: right; font-weight: 600; }
 .ats-detail { color: #777; font-size: 0.72rem; flex: 2; }
 .ats-verdict { font-size: 0.8rem; color: #444; font-style: italic; margin: 6px 0 0; line-height: 1.4; }
+
+.scoring-pending { color: #999; font-style: italic; font-size: 0.8rem; }
+.scoring-loading { padding: 12px 0; color: #999; font-size: 0.8rem; font-style: italic; }
+.loading-text { animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .gaps-section { border-top: 1px solid #eee; padding-top: 10px; }
 .gaps-section h4 { margin: 0 0 6px; font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }

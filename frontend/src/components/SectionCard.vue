@@ -24,7 +24,7 @@ const emit = defineEmits<{
   moveDown: []
 }>()
 
-const collapsed = ref(false)
+const collapsed = ref(true)
 
 const isMultiEntry = ['experience', 'education', 'projects', 'skills'].includes(props.sectionType)
 

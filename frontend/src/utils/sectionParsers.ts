@@ -13,6 +13,9 @@ export interface EntryData {
   startDate?: string
   endDate?: string
 
+  // Experience stack
+  stackUsed?: string[]
+
   // Projects
   name?: string
   url?: string
@@ -65,8 +68,11 @@ export function parseExperienceEntries(content: string): EntryData[] {
   }
 
   for (const line of lines) {
-    // Check if this line starts a new entry (begins with **)
-    if (line.startsWith('**')) {
+    // Check for **Stack Used:** line (must be checked before new-entry detection since it also starts with **)
+    const stackLine = current ? line.match(/^\*\*Stack Used:\*\*\s*(.+)$/) : null
+    if (stackLine && current) {
+      current.stackUsed = stackLine[1].split(',').map((s) => s.trim()).filter(Boolean)
+    } else if (line.startsWith('**')) {
       flushCurrent()
 
       // Try to parse structured header: **Role — Company** *dates*
@@ -79,10 +85,10 @@ export function parseExperienceEntries(content: string): EntryData[] {
         // Split role and company on em-dash, en-dash, or hyphen (with spaces)
         const separatorMatch = boldPart.match(/^(.+?)\s*[—–-]\s+(.+)$/)
 
-        // Parse dates from rest: *Start – End*
+        // Parse dates from rest: **Start – End** or *Start – End*
         let startDate: string | undefined
         let endDate: string | undefined
-        const dateMatch = rest.match(/\*(.+?)\s*[–—-]\s*(.+?)\*/)
+        const dateMatch = rest.match(/\*{1,2}(.+?)\s*[–—-]\s*(.+?)\*{1,2}/)
         if (dateMatch) {
           startDate = dateMatch[1].trim()
           endDate = dateMatch[2].trim()
@@ -115,7 +121,6 @@ export function parseExperienceEntries(content: string): EntryData[] {
         }
       }
     } else if (current) {
-      // Content line belonging to current entry
       contentLines.push(line)
     } else if (line.trim() !== '') {
       // No current entry and line doesn't start with ** — generic fallback
@@ -143,10 +148,14 @@ export function assembleExperienceEntries(entries: EntryData[]): string {
         if (entry.startDate && entry.endDate) {
           header += ` *${entry.startDate} – ${entry.endDate}*`
         }
-        if (entry.content) {
-          return `${header}\n${entry.content}`
+        const parts = [header]
+        if (entry.stackUsed && entry.stackUsed.length > 0) {
+          parts.push(`**Stack Used:** ${entry.stackUsed.join(', ')}`)
         }
-        return header
+        if (entry.content) {
+          parts.push(entry.content)
+        }
+        return parts.map((p, i) => i < parts.length - 1 ? p + '  ' : p).join('\n')
       }
       // Generic fallback
       if (entry.content) {
@@ -196,7 +205,7 @@ export function parseEducationEntries(content: string): EntryData[] {
 
         let startDate: string | undefined
         let endDate: string | undefined
-        const dateMatch = rest.match(/\*(.+?)\s*[–—-]\s*(.+?)\*/)
+        const dateMatch = rest.match(/\*{1,2}(.+?)\s*[–—-]\s*(.+?)\*{1,2}/)
         if (dateMatch) {
           startDate = dateMatch[1].trim()
           endDate = dateMatch[2].trim()
@@ -254,7 +263,7 @@ export function assembleEducationEntries(entries: EntryData[]): string {
           header += ` *${entry.startDate} – ${entry.endDate}*`
         }
         if (entry.content) {
-          return `${header}\n${entry.content}`
+          return `${header}  \n${entry.content}`
         }
         return header
       }
@@ -365,7 +374,7 @@ export function assembleProjectEntries(entries: EntryData[]): string {
           header = `**${entry.name}**`
         }
         if (entry.techStack && entry.techStack.length > 0) {
-          header += ` | Stack - ${entry.techStack.join(', ')}`
+          header += ` **| Stack -** ${entry.techStack.join(', ')}`
         }
         if (entry.content) {
           return `${header}\n${entry.content}`

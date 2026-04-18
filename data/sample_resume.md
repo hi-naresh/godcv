@@ -36,7 +36,7 @@ AI Engineer specialising in **LLM orchestration, data pipelines, and agentic wor
 ---
 # Experience
 
-**Founding AI Engineer — NestDore (London based startup, ~10 people)**  *September 2025 – Present*
+**Founding AI Engineer — NestDore (London based startup, ~10 people)**  *October 2025 – March 2026*
 - Building the core **intelligent-matching engine** for landlords and tenants with the demand of properties .
 - Designing **data pipelines** (Python, VectorDB, API integrations, Typescript) feeding structured verified properties and profiles with required queries and preferences.
 
@@ -63,6 +63,15 @@ AI Engineer specialising in **LLM orchestration, data pipelines, and agentic wor
 
 **[Career Craft Agent (LLM/RAG)](https://career2craft.vercel.app/)**  **| Stack -** Python, Streamlit, TypeScript, ETL (Airflow), FastAPI, LangChain, LangGraph, RAG/Vector Search, Gemini API, OpenAI API, Supabase, OAuth, Kubernetes, Docker, Next.js
 - Orchestrated **agentic workflow** generating tailored resumes and cover letters; designed **data pipeline** processing user profiles, job descriptions, and context injection with vector search retrieval.
+
+**[QEngine (Quant Research Backtester/Live)](https://qengine-production.up.railway.app/#/)**  **| Stack -** Python, Rust (indicators), PostgreSQL, FastAPI, Vue.js, Docker, Kubernetes, scikit-learn, Q-learning, OANDA v20, IG Markets REST + Lightstreamer
+- Built IslandPilot, a hierarchical **regime-aware island-model genetic algorithm**: two-level Gaussian-mixture regime discovery with BIC selection feeds 73 sub-regime islands
+  whose populations are evolved in isolation against the **live backtester** (not a simplified simulator). Out-of-sample EUR-USD 2024 (608 sessions): +10.7% profit factor, –9.7pp     
+  drawdown vs. static baseline strategy without intelligence.
+- Designed ARIA, a six-layer **strategy-agnostic runtime** wrapper (regime detection → contextual-bandit HP selection → conformal-prediction risk shield → Q-learning cycle-abort   
+  agent → telemetry → meta-evaluator) that retrofits online learning onto any rule-based strategy.
+- Extended a forked backtester into a **true-hedging CFD engine** with per-trade tickets, explicit weekend-gap slippage, and identical execution semantics across live drivers      
+  (OANDA v20, IG Markets + Lightstreamer) — giving backtest-to-live parity on two brokers.
 
 ---
 # Volunteering and Interests

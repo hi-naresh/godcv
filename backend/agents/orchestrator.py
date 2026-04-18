@@ -81,15 +81,11 @@ RESUME:
 JOB DESCRIPTION:
 {job_description}
 
-SCORING: You MUST also evaluate the resume against the JD and provide scores.
-
-For "before" scores — evaluate the ORIGINAL resume as-is:
+SCORING: You MUST also evaluate the ORIGINAL resume as-is against the JD and provide "before" scores:
 - keyword_match: percentage of important JD keywords/phrases found in the resume (0-100)
 - skills_coverage: percentage of JD required skills present in the Skills section (0-100)
 - experience_fit: one sentence describing how experience level matches (years, seniority, domain)
 - overall_fit: aggregated score considering all factors (0-100)
-
-For "predicted_after" scores — predict what the tailored resume will score after your planned modifications.
 
 For "gap_suggestions" — list specific weaknesses the candidate has for THIS job:
 - Missing skills the JD requires but resume doesn't have at all
@@ -117,12 +113,6 @@ Respond with a JSON object:
   "section_order": {order_example},
   "scoring": {{
     "before": {{
-      "keyword_match": "<0-100>",
-      "skills_coverage": "<0-100>",
-      "experience_fit": "<one sentence>",
-      "overall_fit": "<0-100>"
-    }},
-    "predicted_after": {{
       "keyword_match": "<0-100>",
       "skills_coverage": "<0-100>",
       "experience_fit": "<one sentence>",

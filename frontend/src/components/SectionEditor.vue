@@ -34,6 +34,7 @@ interface SectionState {
 
 const sections = ref<SectionState[]>([])
 let skipEmit = false
+const headerCollapsed = ref(true)
 
 // --- Parse markdown into state ---
 function parseMarkdown(md: string) {
@@ -124,8 +125,9 @@ function emitUpdate() {
   emit('update:markdown', assembleMarkdown())
 }
 
-// Parse on initial load
+// Parse on initial load and re-emit so preview uses the latest assembled format
 parseMarkdown(props.markdown)
+emit('update:markdown', assembleMarkdown())
 
 // Re-parse if markdown prop changes externally
 watch(() => props.markdown, (newVal) => {
@@ -210,12 +212,13 @@ A brief professional summary.
 # Experience
 
 **Role — Company (Location)** *Start – Present*
+**Stack Used:** Tech1, Tech2
 - Achievement or responsibility.
 
 ---
 # Projects
 
-**[Project Name](https://github.com/you/project)** | Stack - Tech1, Tech2
+**[Project Name](https://github.com/you/project)** **| Stack -** Tech1, Tech2
 - What you built and the impact.
 `
 
@@ -236,8 +239,11 @@ function loadTemplate() {
     <template v-else>
       <!-- Resume Header -->
       <div class="fm-card">
-        <h3>Resume Header</h3>
-        <div class="fm-grid">
+        <div class="fm-header" @click="headerCollapsed = !headerCollapsed">
+          <h3>Resume Header</h3>
+          <span class="collapse-icon">{{ headerCollapsed ? '+' : '-' }}</span>
+        </div>
+        <div v-show="!headerCollapsed" class="fm-grid">
           <div class="fm-field">
             <label>Name</label>
             <input v-model="fmName" @input="emitUpdate()" placeholder="Your Name" />
@@ -308,7 +314,9 @@ function loadTemplate() {
 .fm-card {
   background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 14px;
 }
-.fm-card h3 { margin: 0 0 10px; font-size: 0.9rem; }
+.fm-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.fm-header h3 { margin: 0; font-size: 0.9rem; }
+.fm-header .collapse-icon { font-size: 1.1rem; font-weight: 700; color: #888; width: 22px; text-align: center; }
 .fm-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
 }
