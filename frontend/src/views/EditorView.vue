@@ -95,17 +95,72 @@ async function exportPdf() {
   const { default: html2canvas } = await import('html2canvas')
   const { default: jsPDF } = await import('jspdf')
 
+  // Temporarily clean up: remove box-shadow and strip suggestion highlights
   const origShadow = sheet.style.boxShadow
   sheet.style.boxShadow = 'none'
 
+  // Hide suggestion styling for clean PDF
+  const sugElements = sheet.querySelectorAll('.suggestion, .suggestion-remove, .suggestion-replace, .sug-tooltip, .sug-old, .refining-badge')
+  const origStyles: { el: HTMLElement; display: string; bg: string; border: string; textDec: string; color: string }[] = []
+  sugElements.forEach((el) => {
+    const htmlEl = el as HTMLElement
+    const cs = htmlEl.style
+    origStyles.push({ el: htmlEl, display: cs.display, bg: cs.background, border: cs.borderLeft, textDec: cs.textDecoration, color: cs.color })
+    if (htmlEl.classList.contains('sug-tooltip') || htmlEl.classList.contains('refining-badge')) {
+      htmlEl.style.display = 'none'
+    }
+    if (htmlEl.classList.contains('sug-old')) {
+      htmlEl.style.display = 'none'
+    }
+    htmlEl.style.background = 'none'
+    htmlEl.style.borderLeft = 'none'
+    htmlEl.style.textDecoration = 'none'
+    htmlEl.style.color = 'inherit'
+  })
+
   try {
+    const pageW = 210
+    const pageH = 297
+    const isMulti = currentPageMode.value === 'multi'
+
     const canvas = await html2canvas(sheet, { scale: 2, useCORS: true })
     const imgData = canvas.toDataURL('image/jpeg', 0.98)
+    const imgH = (canvas.height * pageW) / canvas.width
+
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297)
+
+    if (!isMulti || imgH <= pageH) {
+      // Single page: fit to A4
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH)
+    } else {
+      // Multi-page: split canvas into A4-sized chunks
+      const totalPages = Math.ceil(imgH / pageH)
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) pdf.addPage()
+        const srcY = (i * pageH / imgH) * canvas.height
+        const srcH = Math.min((pageH / imgH) * canvas.height, canvas.height - srcY)
+        const pageCanvas = document.createElement('canvas')
+        pageCanvas.width = canvas.width
+        pageCanvas.height = srcH
+        const ctx = pageCanvas.getContext('2d')!
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH)
+        const pageImg = pageCanvas.toDataURL('image/jpeg', 0.98)
+        const drawH = (srcH * pageW) / canvas.width
+        pdf.addImage(pageImg, 'JPEG', 0, 0, pageW, drawH)
+      }
+    }
+
     pdf.save('resume.pdf')
   } finally {
     sheet.style.boxShadow = origShadow
+    // Restore suggestion styling
+    origStyles.forEach(({ el, display, bg, border, textDec, color }) => {
+      el.style.display = display
+      el.style.background = bg
+      el.style.borderLeft = border
+      el.style.textDecoration = textDec
+      el.style.color = color
+    })
   }
 }
 

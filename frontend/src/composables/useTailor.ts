@@ -18,6 +18,7 @@ export function useTailor() {
     if (resumeOverride) body.resume_override = resumeOverride
     if (job.seniorityLevel) body.seniority_level = job.seniorityLevel
     if (analyzeOnly) body.analyze_only = true
+    body.page_mode = store.pageMode
 
     fetch('/api/tailor', {
       method: 'POST',

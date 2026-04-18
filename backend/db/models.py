@@ -41,6 +41,7 @@ class TailorRequest(BaseModel):
     resume_override: str | None = None
     gemini_api_key: str | None = None
     seniority_level: str | None = None
+    page_mode: str = "single"
     analyze_only: bool = False
 
 

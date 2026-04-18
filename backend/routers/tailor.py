@@ -58,7 +58,15 @@ async def tailor_resume(request: TailorRequest):
             if profile_id:
                 insights = await profile_service.get_role_insights(profile_id)
 
-            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level)
+            # Pre-parse to extract entry keys for the orchestrator
+            pre_parsed = parse_resume(resume_md)
+            entry_keys = {}
+            for sec_name, sec_val in pre_parsed["sections"].items():
+                if isinstance(sec_val, dict) and "_entries" in sec_val:
+                    entry_keys[sec_name] = [{"key": e["key"], "title": e["title"]} for e in sec_val["_entries"]]
+
+            page_mode = request.page_mode or (profile.get("page_mode", "single") if profile else "single")
+            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level, page_mode, entry_keys)
             tool_calls = plan.get("tool_calls", [])
             sections_unchanged = plan.get("sections_unchanged", [])
 

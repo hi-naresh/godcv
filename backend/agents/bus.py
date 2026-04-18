@@ -90,13 +90,16 @@ class AgentBus:
                 entry_key = call.get("entry", "")
                 entry = entry_map.get(entry_key)
                 if not entry:
-                    # Try fuzzy match
+                    # Try fuzzy match on key or full title
                     for k, v in entry_map.items():
-                        if entry_key.lower() in k.lower() or k.lower() in entry_key.lower():
+                        title = v.get("title", "").lower()
+                        ek = entry_key.lower()
+                        if ek in k.lower() or k.lower() in ek or ek in title or k.lower() in ek:
                             entry = v
                             entry_key = k
                             break
                 if not entry:
+                    self.log.warning("Experience entry not found: '%s' (available: %s)", entry_key, list(entry_map.keys()))
                     continue
 
                 exp_tasks.append(
@@ -132,11 +135,14 @@ class AgentBus:
                 entry = proj_entry_map.get(entry_key)
                 if not entry:
                     for k, v in proj_entry_map.items():
-                        if entry_key.lower() in k.lower() or k.lower() in entry_key.lower():
+                        title = v.get("title", "").lower()
+                        ek = entry_key.lower()
+                        if ek in k.lower() or k.lower() in ek or ek in title:
                             entry = v
                             entry_key = k
                             break
                 if not entry:
+                    self.log.warning("Project entry not found: '%s' (available: %s)", entry_key, list(proj_entry_map.keys()))
                     continue
 
                 proj_tasks.append(

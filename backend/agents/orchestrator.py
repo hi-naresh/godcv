@@ -11,6 +11,8 @@ class OrchestratorAgent:
         job_description: str,
         role_insights: list[dict] | None = None,
         seniority_level: str | None = None,
+        page_mode: str = "single",
+        entry_keys: dict | None = None,
     ) -> dict:
         """Analyze job description against resume and produce a tool_calls plan."""
         insights_context = ""
@@ -68,13 +70,13 @@ AVAILABLE AGENTS AND ACTIONS:
   - Prioritize projects whose tech stack matches the JD
 
 ENTRY SELECTION RULES:
-- The resume may contain MORE entries than can fit on a single page
 - You MUST provide an action for EVERY experience and project entry (include, exclude, or rewrite)
-- Select enough entries to fill a 1-page resume without overflow
-- For a 1-page resume: typically 2-3 experience entries and 2-3 projects
+- You MUST use the EXACT entry keys provided in the ENTRY KEYS section below (if provided)
 - Prefer entries most relevant to the job description
 - When excluding, drop the least relevant entries first
 {insights_context}{seniority_context}
+PAGE MODE: {"MULTI-PAGE — Include ALL entries. No need to exclude entries for space. Agents can add richer content." if page_mode == "multi" else "SINGLE-PAGE — Select entries to fit one page. Typically 2-3 experience entries and 2-3 projects."}
+{self._entry_keys_context(entry_keys)}
 RESUME:
 {resume_markdown}
 
@@ -123,3 +125,13 @@ Respond with a JSON object:
 }}"""
 
         return await self.gemini.generate_json(prompt)
+
+    @staticmethod
+    def _entry_keys_context(entry_keys: dict | None) -> str:
+        if not entry_keys:
+            return ""
+        lines = ["ENTRY KEYS (use these EXACT keys in tool_calls):"]
+        for section, keys in entry_keys.items():
+            for k in keys:
+                lines.append(f'  - agent: "{section.lower()}", entry: "{k["key"]}" (= {k["title"][:60]})')
+        return "\n".join(lines) + "\n"
