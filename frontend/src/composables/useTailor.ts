@@ -10,7 +10,7 @@ export function useTailor() {
     store.resetJobTailoring(jobId)
     store.updateJob(jobId, {
       tailoringStatus: analyzeOnly ? 'analyzing' : 'running',
-      statusMessage: analyzeOnly ? 'Analyzing job requirements...' : 'Starting tailoring...',
+      statusMessage: analyzeOnly ? 'Agent: Analyzing job requirements...' : 'Agent: Starting tailoring...',
     })
 
     const body: Record<string, any> = { job_description: job.jobDescription }
@@ -71,19 +71,22 @@ export function useTailor() {
         }
       }
 
-      // If stream ended without a 'complete', 'error', or 'analysis_complete' event
+      // Stream ended — always clear status message
       const finalJob = store.jobs.get(jobId)
-      if (finalJob && (finalJob.tailoringStatus === 'running' || finalJob.tailoringStatus === 'analyzing')) {
-        store.updateJob(jobId, {
-          tailoringStatus: 'error',
-          error: 'Connection closed before completing',
-        })
+      if (finalJob) {
+        store.updateJob(jobId, { statusMessage: null })
+        if (finalJob.tailoringStatus === 'running' || finalJob.tailoringStatus === 'analyzing') {
+          store.updateJob(jobId, {
+            tailoringStatus: 'error',
+            error: 'Connection closed before completing',
+          })
+        }
       }
     }).catch((err) => {
       const message = err instanceof TypeError
         ? 'Cannot connect to server. Is the backend running?'
         : (err.message || 'Unknown network error')
-      store.updateJob(jobId, { tailoringStatus: 'error', error: message })
+      store.updateJob(jobId, { tailoringStatus: 'error', statusMessage: null, error: message })
     })
   }
 
@@ -109,7 +112,7 @@ export function useTailor() {
 
     switch (event) {
       case 'status':
-        store.updateJob(jobId, { statusMessage: data.message as string })
+        store.updateJob(jobId, { statusMessage: `Agent: ${data.message as string}` })
         break
       case 'plan': {
         const plan = data.tool_calls as any[]
@@ -162,8 +165,9 @@ export function useTailor() {
         break
       }
       case 'agent_start': {
-        const statuses = { ...job.agentStatuses, [data.agent as string]: 'running' as const }
-        store.updateJob(jobId, { agentStatuses: statuses })
+        const agent = data.agent as string
+        const statuses = { ...job.agentStatuses, [agent]: 'running' as const }
+        store.updateJob(jobId, { agentStatuses: statuses, statusMessage: `Agent: Refining ${agent}...` })
         break
       }
       case 'agent_done': {
@@ -226,7 +230,7 @@ export function useTailor() {
       // Reset only tailoring artifacts, keep analysis
       store.updateJob(jobId, {
         tailoringStatus: 'running',
-        statusMessage: 'Starting tailoring...',
+        statusMessage: 'Agent: Starting tailoring...',
         agentStatuses: {},
         result: null,
         error: null,
@@ -291,8 +295,11 @@ export function useTailor() {
         }
 
         const finalJob = store.jobs.get(jobId)
-        if (finalJob && finalJob.tailoringStatus === 'running') {
-          store.updateJob(jobId, { tailoringStatus: 'error', statusMessage: null, error: 'Connection closed' })
+        if (finalJob) {
+          store.updateJob(jobId, { statusMessage: null })
+          if (finalJob.tailoringStatus === 'running') {
+            store.updateJob(jobId, { tailoringStatus: 'error', error: 'Connection closed' })
+          }
         }
       }).catch((err) => {
         const message = err instanceof TypeError
