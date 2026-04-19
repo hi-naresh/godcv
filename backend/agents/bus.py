@@ -6,7 +6,6 @@ from backend.agents.skills import SkillsAgent
 from backend.agents.experience import ExperienceAgent
 from backend.agents.projects import ProjectsAgent
 from backend.agents.education import EducationAgent
-from backend.agents.publications import PublicationsAgent
 from backend.services.gemini import GeminiClient
 from backend.services.formatter import validate_and_fix
 
@@ -23,7 +22,6 @@ class AgentBus:
             "experience": ExperienceAgent(gemini),
             "projects": ProjectsAgent(gemini),
             "education": EducationAgent(gemini),
-            "publications": PublicationsAgent(gemini),
         }
 
     async def dispatch(

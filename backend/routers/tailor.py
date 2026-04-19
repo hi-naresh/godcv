@@ -93,9 +93,12 @@ async def tailor_resume(request: TailorRequest):
 
             # Phase 3: Dispatch agents
             role_type = plan.get("analysis", {}).get("role_type", "")
-            # Inject role_type into each tool_call so agents know the domain
+            # Build candidate facts once, inject into every tool_call
+            from backend.services.candidate_profile import build_candidate_profile
+            candidate_facts = build_candidate_profile(resume_md)
             for call in tool_calls:
                 call["role_type"] = role_type
+                call["candidate_facts"] = candidate_facts
 
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
             for call in active_calls:

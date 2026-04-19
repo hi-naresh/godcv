@@ -46,16 +46,16 @@ function update(fields: Partial<EntryData>) {
 </template>
 
 <style scoped>
-.entry-card { border: 1px solid #e8e8e8; border-radius: 8px; padding: 10px; background: #fafafa; }
+.entry-card { border: 1px solid #e8e8e8; border-radius: 8px; padding: 10px; background: #fafafa; overflow: hidden; }
 .entry-header { display: flex; gap: 6px; margin-bottom: 6px; }
-.entry-fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.entry-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.field { display: flex; flex-direction: column; gap: 2px; }
+.field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .field label { font-size: 0.7rem; font-weight: 600; color: #888; }
-.field input { padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 0.82rem; font-family: ui-monospace, monospace; }
+.field input { padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 0.82rem; font-family: ui-monospace, monospace; min-width: 0; }
 .field input:focus { outline: none; border-color: #667eea; }
-.entry-remove-btn { width: 26px; height: 26px; border: none; background: #f0f0f0; border-radius: 6px; font-size: 1rem; cursor: pointer; color: #999; display: flex; align-items: center; justify-content: center; align-self: flex-start; }
+.entry-remove-btn { width: 26px; height: 26px; min-width: 26px; border: none; background: #f0f0f0; border-radius: 6px; font-size: 1rem; cursor: pointer; color: #999; display: flex; align-items: center; justify-content: center; align-self: flex-start; flex-shrink: 0; }
 .entry-remove-btn:hover { background: #ffe0e0; color: #d00; }
-.entry-content { width: 100%; resize: vertical; padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 0.8rem; font-family: ui-monospace, monospace; line-height: 1.5; }
+.entry-content { width: 100%; resize: vertical; padding: 6px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 0.8rem; font-family: ui-monospace, monospace; line-height: 1.5; box-sizing: border-box; }
 .entry-content:focus { outline: none; border-color: #667eea; }
 </style>

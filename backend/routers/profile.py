@@ -70,3 +70,21 @@ async def get_insights():
 async def delete_insight(insight_id: int):
     await profile_service.delete_role_insight(insight_id)
     return {"ok": True}
+
+
+@router.post("/reset")
+async def reset_all():
+    """Flush all data (CVs, roles, history, profile) and re-seed from sample_resume.md.
+    Preserves LLM usage stats (in-memory, not in DB)."""
+    from backend.db.database import get_db
+    db = await get_db()
+    # Delete everything — order matters for foreign keys
+    await db.execute("DELETE FROM tailoring_history")
+    await db.execute("DELETE FROM role_insights")
+    await db.execute("DELETE FROM saved_cvs")
+    await db.execute("DELETE FROM profiles")
+    await db.commit()
+
+    # Re-seed from sample
+    p = await _seed_from_sample()
+    return {"ok": True, "profile": p}

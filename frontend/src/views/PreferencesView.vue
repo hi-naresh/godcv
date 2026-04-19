@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEditorStore } from '../stores/editor'
 import { useProfile } from '../composables/useProfile'
+import { useToast } from '../composables/useToast'
 import PageModeToggle from '../components/PageModeToggle.vue'
 
+const router = useRouter()
 const store = useEditorStore()
 const { fetchProfile, updateProfile } = useProfile()
+const { show: showToast } = useToast()
+const resetting = ref(false)
 
 const apiKey = ref('')
 const saving = ref(false)
@@ -92,6 +97,25 @@ async function saveApiKey() {
     await loadModels()
   } finally {
     saving.value = false
+  }
+}
+
+async function resetAll() {
+  if (!confirm('This will delete ALL data: saved CVs, roles, history, and your profile. Your resume will be reset to the sample template.\n\nLLM usage stats will be preserved.\n\nAre you sure?')) return
+  resetting.value = true
+  try {
+    const res = await fetch('/api/profile/reset', { method: 'POST' })
+    if (res.ok) {
+      const data = await res.json()
+      store.profile = data.profile
+      store.markdown = data.profile?.master_resume || ''
+      store.jobs.clear()
+      store.activeJobId = null
+      showToast('All data reset. Profile restored from sample resume.', 'success')
+      router.push('/profile')
+    }
+  } finally {
+    resetting.value = false
   }
 }
 
@@ -223,11 +247,20 @@ function barColor(p: number): string {
       <div v-if="!usage" class="pref-desc">Loading usage data...</div>
       <button v-if="usage" class="refresh-btn" @click="loadUsage">Refresh</button>
     </div>
+
+    <div class="pref-card danger-card">
+      <h3>Reset All Data</h3>
+      <p class="pref-desc">Deletes all saved CVs, roles, history, and profile. Resets resume to the sample template. LLM usage stats are preserved.</p>
+      <button class="reset-btn" :disabled="resetting" @click="resetAll">
+        {{ resetting ? 'Resetting...' : 'Reset Everything' }}
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.preferences-page { max-width: 650px; margin: 0 auto; }
+.preferences-page { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.preferences-page h2 { grid-column: 1 / -1; margin-bottom: 4px; }
 h2 { margin-bottom: 16px; }
 .pref-card {
   background: #fff; border: 1px solid #e0e0e0; border-radius: 12px;
@@ -305,4 +338,19 @@ h2 { margin-bottom: 16px; }
   padding: 5px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
 }
 .refresh-btn:hover { background: #f5f5f5; }
+
+/* Danger zone */
+.danger-card { border-color: #f5c6cb; grid-column: 1 / -1; }
+.danger-card h3 { color: #dc3545; }
+.reset-btn {
+  padding: 8px 20px; border: 1px solid #dc3545; background: #fff;
+  color: #dc3545; border-radius: 8px; font-weight: 700; font-size: 0.82rem;
+  cursor: pointer;
+}
+.reset-btn:hover { background: #dc3545; color: #fff; }
+.reset-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 800px) {
+  .preferences-page { grid-template-columns: 1fr; }
+}
 </style>

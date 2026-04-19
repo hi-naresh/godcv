@@ -9,47 +9,82 @@ class ProjectsAgent:
                   job_description: str, extra: dict = None) -> str:
         promote = extra.get("promote", []) if extra else []
         role_type = extra.get("role_type", "") if extra else ""
+        candidate_facts = extra.get("candidate_facts", "") if extra else ""
+        generate_new = extra.get("generate_projects", False) if extra else False
+        candidate_skills = extra.get("candidate_skills", "") if extra else ""
         is_technical = role_type in ("ai_ml", "backend", "data_eng", "frontend", "devops", "fullstack", "")
 
-        tech_stack_rule = ""
         if is_technical:
-            tech_stack_rule = """- IMPORTANT: Every project MUST have a "| Stack -" line listing key technologies
-- If the original project has a stack line, preserve and update it (add JD-relevant tech if truthfully used)
-- If a project is missing a stack line, add one based on the technologies mentioned in its bullets
-- Reorder the tech list to put JD-relevant technologies first"""
+            tech_stack_rule = """- Every project MUST have a tech stack line: **| Stack -** Tech1, Tech2
+- Reorder technologies to put JD-relevant ones first
+- Only list technologies ACTUALLY used in the project"""
         else:
-            tech_stack_rule = """- This is NOT a technical/CS role — do NOT add "| Stack -" lines or technology lists
-- Focus on methodologies, outcomes, and domain-relevant details instead"""
+            tech_stack_rule = """- This is NOT a technical/CS role — do NOT add "| Stack -" lines
+- Focus on methodologies, outcomes, and domain-relevant details"""
 
-        prompt = f"""You are a resume projects section optimizer. Reorder and adjust this projects section to better match the job description.
+        generation_rule = ""
+        if generate_new:
+            generation_rule = f"""
+GENERATE NEW PROJECTS:
+Generate 1-2 NEW project entries based on the candidate's real skills and coursework that fill JD gaps.
+Rules:
+- Must use ONLY technologies the candidate already knows
+- Must be realistic — something they would actually build
+- Must directly demonstrate a JD requirement existing projects don't cover
+- No fake URLs — use "at University" or "Personal" after the name
+- Place after real projects
 
-RULES:
-- Keep ALL existing projects
-- Reorder to put most relevant projects first
-- You may slightly adjust bullet point wording to emphasize relevant aspects
-- Keep project names and links accurate
-- Return ONLY the projects content, no section header
+CANDIDATE'S KNOWN SKILLS:
+{candidate_skills}
+"""
+
+        prompt = f"""You are a resume projects strategist. Your job is to make the projects section tell a CONVINCING and TRUTHFUL story of the candidate's fit for this specific role.
+
+{f"CANDIDATE FACTS:{chr(10)}{candidate_facts}{chr(10)}" if candidate_facts else ""}
+STRATEGY — Think like the hiring manager reading these projects:
+
+1. RELEVANCE FIRST: Rank projects by how directly they demonstrate JD requirements.
+   A project that IS the kind of work the JD describes should come first with expanded detail.
+   A project that's tangentially related gets condensed to 1-2 bullets.
+
+2. BE HONEST ABOUT FIT: If a project doesn't demonstrate JD-relevant skills, do NOT force JD buzzwords into it.
+   A chatbot project is NOT "ML research" — don't call it that.
+   A web app is NOT "quantitative analysis" — don't pretend it is.
+   Instead: either condense it (1 bullet showing transferable skills like "deployment", "system design")
+   or let the orchestrator exclude it.
+
+3. EXPAND WHAT MATTERS: For the most relevant projects, add detail that maps to specific JD requirements:
+   - If JD wants "model validation" and the project has backtesting → expand that aspect
+   - If JD wants "scalable pipelines" and the project has data processing → highlight scale/throughput
+   - Use the JD's exact terminology where it truthfully applies
+
+4. DON'T FABRICATE: Never add capabilities, metrics, or technologies that weren't part of the project.
+   Reframing is fine ("built data pipeline" → "engineered scalable research pipeline processing X records").
+   Inventing is not ("built chatbot" → "conducted cutting-edge ML research" — this is a lie).
+
+WHAT YOU MUST DO:
+- Reorder projects: most JD-relevant first
+- Expand relevant projects (3-5 bullets for top projects)
+- Condense less relevant projects (1-2 bullets)
+- Use JD terminology ONLY where it truthfully applies
 {tech_stack_rule}
+{generation_rule}
+CRITICAL FORMATTING:
+- Each project: **[Name](url)** or **Name** on its own line
+- PRESERVE ALL markdown links [Name](url) EXACTLY — never remove URLs
+- Tech stack: **| Stack -** Tech1, Tech2
+- Each bullet on its own line with '- '
+- ONE blank line between projects
 
-FORMATTING:
-- Each project MUST start on its own line with bold title
-- Each bullet MUST start on its own new line with '- '
-- Separate projects with exactly ONE blank line
-
-Example of correct format (technical role):
-**[DataFlow](https://github.com/test)** | Stack - Python, Kafka, Docker
-- Built real-time streaming pipeline processing 500K events per second.
-
-**[WebApp](https://github.com/test2)** | Stack - React, Node.js, PostgreSQL
-- Designed responsive dashboard interface with real-time data visualization.
-
-PROJECTS TO PROMOTE (put first): {', '.join(promote) if promote else 'Use your judgment based on JD'}
+PROJECTS TO PROMOTE: {', '.join(promote) if promote else 'Most JD-relevant first'}
 
 ORIGINAL PROJECTS:
 {section_content}
 
-JOB DESCRIPTION:
+FULL JOB DESCRIPTION:
 {job_description}
 
-Reordered projects section:"""
+SPECIFIC INSTRUCTIONS: {instructions}
+
+Optimized projects section:"""
         return await self.gemini.generate(prompt)

@@ -114,6 +114,11 @@ def _fix_experience(content: str) -> str:
 
     # Split bullets joined on same line: "- text. - text" → separate lines
     content = re.sub(r'(\.\s*)- ', r'.\n- ', content)
+
+    # Normalize "Stack Used:" to bold format: "Stack Used:" → "**Stack Used:**"
+    content = re.sub(
+        r'^Stack Used:\s*', '**Stack Used:** ', content, flags=re.MULTILINE
+    )
     return content
 
 
@@ -143,5 +148,9 @@ def _fix_projects(content: str) -> str:
     # Ensure project title lines (with pipe) are on their own line
     content = re.sub(
         r"([^\n])(\*\*[A-Z][^*]*\*\*\s*\|)", r"\1\n\n\2", content
+    )
+    # Normalize "| Stack -" to bold format: "| Stack -" → "**| Stack -**"
+    content = re.sub(
+        r'(?<!\*)\| Stack -(?!\*)', '**| Stack -**', content
     )
     return content

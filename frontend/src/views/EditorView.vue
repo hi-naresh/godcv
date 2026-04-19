@@ -19,6 +19,7 @@ const { saveCV } = useSavedCVs()
 const saveMsg = ref('')
 const rawMode = ref(false)
 const justified = ref(true)
+const editorCollapsed = ref(true)
 
 onMounted(async () => {
   const p = await fetchProfile()
@@ -249,8 +250,12 @@ function denySuggestion(sugId: string) {
 
       <!-- Section Editor -->
       <section v-if="store.markdown" class="panel-section sections-panel">
-        <h3 class="sections-title">Edit Sections</h3>
+        <div class="sections-header" @click="editorCollapsed = !editorCollapsed">
+          <h3 class="sections-title">Edit Sections</h3>
+          <span class="collapse-icon">{{ editorCollapsed ? '+' : '-' }}</span>
+        </div>
         <SectionEditor
+          v-show="!editorCollapsed"
           :markdown="activeMarkdown"
           @update:markdown="onSectionUpdate"
         />
@@ -426,7 +431,12 @@ function denySuggestion(sugId: string) {
 .empty-preview-content small { font-size: 0.8rem; }
 
 .sections-panel { padding: 12px; }
-.sections-title { margin: 0 0 8px; font-size: 0.9rem; color: #555; }
+.sections-header {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.sections-header .collapse-icon { font-size: 1.1rem; font-weight: 700; color: #888; }
+.sections-title { margin: 0; font-size: 0.9rem; color: #555; }
 .preview-area { display: flex; justify-content: center; }
 
 @media (max-width: 900px) {

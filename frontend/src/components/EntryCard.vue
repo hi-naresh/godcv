@@ -39,15 +39,15 @@ defineEmits<{
 }
 .entry-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .entry-title-input {
-  flex: 1; border: 1px solid #d9d9d9; border-radius: 6px;
+  flex: 1; min-width: 0; border: 1px solid #d9d9d9; border-radius: 6px;
   padding: 6px 8px; font-size: 0.82rem; font-weight: 600;
   font-family: ui-monospace, monospace;
 }
 .entry-title-input:focus { outline: none; border-color: #667eea; }
 .entry-remove-btn {
-  width: 26px; height: 26px; border: none; background: #f0f0f0;
+  width: 26px; height: 26px; min-width: 26px; border: none; background: #f0f0f0;
   border-radius: 6px; font-size: 1rem; cursor: pointer; color: #999;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .entry-remove-btn:hover { background: #ffe0e0; color: #d00; }
 .entry-content {

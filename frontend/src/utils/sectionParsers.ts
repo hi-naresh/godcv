@@ -68,8 +68,8 @@ export function parseExperienceEntries(content: string): EntryData[] {
   }
 
   for (const line of lines) {
-    // Check for **Stack Used:** line (must be checked before new-entry detection since it also starts with **)
-    const stackLine = current ? line.match(/^\*\*Stack Used:\*\*\s*(.+)$/) : null
+    // Check for Stack Used: line — accept both bold (**Stack Used:**) and plain (Stack Used:)
+    const stackLine = current ? line.match(/^(?:\*\*)?Stack Used:(?:\*\*)?\s*(.+)$/) : null
     if (stackLine && current) {
       current.stackUsed = stackLine[1].split(',').map((s) => s.trim()).filter(Boolean)
     } else if (line.startsWith('**')) {
@@ -315,8 +315,8 @@ export function parseProjectEntries(content: string): EntryData[] {
       }
 
       // Extract name and optional URL from the header part
-      // Pattern: **[Name](url)** possibly followed by "at Company"
-      const linkMatch = headerPart.match(/^\*\*\[(.+?)\]\((.+?)\)\*\*/)
+      // Pattern: **[Name](url)** or [Name](url) — with or without bold
+      const linkMatch = headerPart.match(/^\*{0,2}\[(.+?)\]\((.+?)\)\*{0,2}/)
       if (linkMatch) {
         name = linkMatch[1]
         url = linkMatch[2]

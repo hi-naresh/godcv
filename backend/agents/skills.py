@@ -10,31 +10,37 @@ class SkillsAgent:
         promote = extra.get("promote", []) if extra else []
         demote = extra.get("demote", []) if extra else []
 
-        prompt = f"""You are a resume skills section optimizer. Reorder and adjust this skills section to better match the job description.
+        prompt = f"""You are a resume skills section optimizer. Reorder this skills section so the most JD-relevant skills jump out first.
 
-RULES:
-- Keep ALL existing skills -- do not remove any
-- Reorder categories and skills within categories to put most relevant first
-- You may add 1-2 skills from the JD if the candidate likely has them based on their experience
-- Do NOT fabricate skills the candidate doesn't have
-- Return ONLY the skills section content, no section header
+YOUR GOAL: A recruiter scans the skills section in 3 seconds. Make sure they immediately see the skills they're looking for.
+1. Put the CATEGORY that best matches the JD first (e.g., if JD is about data engineering, "Data Engineering:" goes first)
+2. Within each category, put JD-mentioned skills FIRST
+3. You may add 1-2 skills if the candidate clearly has them based on their experience (e.g., if they use LangChain, they know Python)
+4. Do NOT remove any existing skills
+5. Do NOT fabricate skills the candidate doesn't have
 
-FORMATTING:
-- Each category MUST use bold header with colon: **Category Name:** skill1, skill2
-- Each category MUST be separated by exactly ONE blank line
+FORMATTING — follow this EXACTLY:
+- Each category on its own line: **Category Name:** skill1, skill2, skill3.
+- Bold markers around category name and colon: **Name:**
+- End each category line with a period
+- Separate categories with exactly ONE blank line
+- Do NOT use bullet points, headers, sub-headers, or any other formatting
+- Do NOT add section headers like "# Skills"
 
-Example of correct format:
-**Backend:** Python, FastAPI, Django.
+Example:
+**Data Engineering:** ETL Pipelines, Apache Airflow, MongoDB, PostgreSQL, VectorDB.
 
-**Cloud/Infra:** AWS, Docker, Kubernetes.
+**AI/ML:** LangChain, PyTorch, RAG Systems, Fine-tuning.
 
-SKILLS TO PROMOTE (put first): {', '.join(promote) if promote else 'Use your judgment'}
+**Cloud/Infra:** AWS, Docker, Kubernetes, CI/CD.
+
+SKILLS TO PROMOTE (put first in their category): {', '.join(promote) if promote else 'JD-relevant skills'}
 SKILLS TO DEMOTE (put later): {', '.join(demote) if demote else 'None'}
 
 ORIGINAL SKILLS:
 {section_content}
 
-JOB DESCRIPTION:
+FULL JOB DESCRIPTION:
 {job_description}
 
 Reordered skills section:"""

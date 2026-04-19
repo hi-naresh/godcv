@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useEditorStore } from '../stores/editor'
+import ResumePreview from '../components/ResumePreview.vue'
 
+const store = useEditorStore()
+const router = useRouter()
 const history = ref<any[]>([])
 const selected = ref<any>(null)
 
 onMounted(async () => {
   const res = await fetch('/api/jobs')
-  history.value = await res.json()
+  if (res.ok) history.value = await res.json()
 })
 
 async function deleteJob(id: number) {
@@ -14,63 +19,136 @@ async function deleteJob(id: number) {
   history.value = history.value.filter(j => j.id !== id)
   if (selected.value?.id === id) selected.value = null
 }
+
+function loadInEditor(job: any) {
+  if (job.tailored_resume) {
+    store.markdown = job.tailored_resume
+    router.push('/')
+  }
+}
+
+function downloadPdf() {
+  const sheet = document.querySelector('.sheet') as HTMLElement
+  if (!sheet) return
+  sheet.classList.add('export-mode')
+  window.print()
+  window.addEventListener('afterprint', () => sheet.classList.remove('export-mode'), { once: true })
+  setTimeout(() => sheet.classList.remove('export-mode'), 2000)
+}
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 </script>
 
 <template>
-  <div class="history-page">
-    <h2>Tailoring History</h2>
-    <div v-if="!history.length" class="empty">No tailoring history yet.</div>
-    <div v-for="job in history" :key="job.id" class="history-card" @click="selected = job">
-      <div class="history-header">
-        <strong>{{ job.job_title || 'Untitled' }}</strong>
-        <span v-if="job.company"> at {{ job.company }}</span>
-        <span class="date">{{ new Date(job.created_at).toLocaleDateString() }}</span>
-        <button class="delete-btn" @click.stop="deleteJob(job.id)">Delete</button>
+  <div class="history-layout">
+    <div class="history-left">
+      <h2>Tailoring History</h2>
+      <div v-if="!history.length" class="empty-state">
+        <p>No tailoring history yet.</p>
+        <p class="hint">Tailor a resume from the Editor tab to see history here.</p>
       </div>
-      <div class="history-meta">
-        <span class="badge">{{ job.role_type || 'general' }}</span>
-        <span>{{ job.sections_modified?.length || 0 }} sections modified</span>
+      <div v-else class="job-list">
+        <div
+          v-for="job in history"
+          :key="job.id"
+          :class="['job-card', { active: selected?.id === job.id }]"
+          @click="selected = job"
+        >
+          <div class="job-header">
+            <strong>{{ job.job_title || 'Untitled' }}</strong>
+            <button class="delete-btn" @click.stop="deleteJob(job.id)" title="Delete">&times;</button>
+          </div>
+          <div class="job-meta">
+            <span v-if="job.company">{{ job.company }}</span>
+            <span class="badge">{{ job.role_type || 'general' }}</span>
+            <span>{{ (job.sections_modified || []).length }} sections</span>
+          </div>
+          <div class="job-date">{{ formatDate(job.created_at) }}</div>
+          <button class="load-btn" @click.stop="loadInEditor(job)">Load in Editor</button>
+        </div>
       </div>
     </div>
 
-    <div v-if="selected" class="detail-panel">
-      <h3>Tailored Resume</h3>
-      <pre class="resume-preview">{{ selected.tailored_resume }}</pre>
-      <button @click="selected = null" class="close-btn">Close</button>
+    <div class="history-right">
+      <div v-if="selected" class="preview-area">
+        <div class="preview-controls">
+          <div class="preview-label">{{ selected.job_title || 'Tailored Resume' }}<span v-if="selected.company"> at {{ selected.company }}</span></div>
+          <button class="export-btn" @click="downloadPdf">Download PDF</button>
+        </div>
+        <ResumePreview v-if="selected.tailored_resume" :markdown="selected.tailored_resume" :pageMode="store.pageMode" />
+      </div>
+      <div v-else class="empty-preview">
+        <p>Select a history item to preview</p>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.history-page { max-width: 800px; margin: 0 auto; }
-h2 { margin-bottom: 12px; }
-.empty { color: #666; }
-.history-card {
+.history-layout {
+  display: flex; gap: 18px; max-width: 1400px; margin: 0 auto;
+  align-items: flex-start;
+}
+.history-left {
+  width: min(400px, 35vw); min-width: 280px;
+  position: sticky; top: 18px;
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: calc(100vh - 36px); overflow-y: auto;
+}
+.history-left h2 { margin: 0; }
+.history-right {
+  flex: 1; max-width: 240mm;
+  position: sticky; top: 18px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.empty-state {
+  color: #999; font-size: 0.9rem; padding: 30px;
+  background: #fff; border: 2px dashed #e0e0e0; border-radius: 12px; text-align: center;
+}
+.hint { font-size: 0.8rem; color: #aaa; margin-top: 4px; }
+
+.job-list { display: flex; flex-direction: column; gap: 6px; }
+.job-card {
   background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
-  padding: 12px; margin-bottom: 8px; cursor: pointer;
+  padding: 12px; cursor: pointer; transition: border-color 0.15s;
 }
-.history-card:hover { border-color: #667eea; }
-.history-header { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.date { margin-left: auto; color: #999; font-size: 0.8rem; }
+.job-card:hover { border-color: #999; }
+.job-card.active { border-color: #111; background: #f9f9f9; }
+.job-header { display: flex; justify-content: space-between; align-items: center; }
+.job-header strong { font-size: 0.88rem; }
+.job-meta { display: flex; gap: 8px; font-size: 0.78rem; color: #666; margin-top: 3px; align-items: center; }
+.badge { background: #f0f0f0; padding: 1px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+.job-date { font-size: 0.72rem; color: #aaa; margin-top: 2px; }
 .delete-btn {
-  font-size: 0.75rem; background: none; border: 1px solid #ddd;
-  border-radius: 6px; padding: 2px 8px; cursor: pointer; color: #dc3545;
+  border: none; background: #f0f0f0; border-radius: 6px; width: 24px; height: 24px;
+  font-size: 1rem; cursor: pointer; color: #999; display: flex; align-items: center; justify-content: center;
 }
-.history-meta { margin-top: 4px; font-size: 0.8rem; color: #666; display: flex; gap: 10px; }
-.badge {
-  background: #f0f0f0; padding: 1px 8px; border-radius: 4px;
-  font-size: 0.75rem; font-weight: 600;
+.delete-btn:hover { background: #ffe0e0; color: #d00; }
+.load-btn {
+  margin-top: 8px; padding: 5px 12px; border: 1px solid #d0d0d0; border-radius: 6px;
+  background: #fff; font-size: 0.76rem; font-weight: 600; cursor: pointer;
 }
-.detail-panel {
-  margin-top: 16px; background: #fff; border: 1px solid #d9d9d9;
-  border-radius: 12px; padding: 16px;
+.load-btn:hover { background: #f5f5f5; }
+
+.preview-controls { display: flex; align-items: center; justify-content: space-between; }
+.preview-label { font-size: 0.8rem; font-weight: 600; color: #999; }
+.export-btn {
+  border: 1px solid #d0d0d0; background: #fafafa; border-radius: 8px;
+  padding: 6px 14px; font-weight: 600; font-size: 0.8rem; cursor: pointer;
 }
-.resume-preview {
-  white-space: pre-wrap; font-size: 0.8rem; max-height: 400px;
-  overflow-y: auto; background: #f9f9f9; padding: 10px; border-radius: 8px;
+.export-btn:hover { background: #eee; }
+.empty-preview {
+  width: var(--page-w); min-height: 300px;
+  background: #fff; border: 2px dashed #d9d9d9; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #999; font-size: 0.85rem;
 }
-.close-btn {
-  margin-top: 10px; padding: 6px 16px; border: 1px solid #ccc;
-  border-radius: 8px; background: #fafafa; cursor: pointer;
+
+@media (max-width: 900px) {
+  .history-layout { flex-direction: column; }
+  .history-left { width: 100%; min-width: unset; position: static; max-height: unset; }
+  .history-right { max-width: 100%; position: static; }
 }
 </style>

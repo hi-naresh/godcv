@@ -34,6 +34,15 @@ async function removeCv(cv: SavedCV) {
   if (selectedCV.value?.id === cv.id) selectedCV.value = null
 }
 
+function downloadPdf() {
+  const sheet = document.querySelector('.sheet') as HTMLElement
+  if (!sheet) return
+  sheet.classList.add('export-mode')
+  window.print()
+  window.addEventListener('afterprint', () => sheet.classList.remove('export-mode'), { once: true })
+  setTimeout(() => sheet.classList.remove('export-mode'), 2000)
+}
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
@@ -71,7 +80,10 @@ function formatDate(d: string) {
 
     <div class="saved-right">
       <div v-if="selectedCV" class="preview-area">
-        <div class="preview-label">Preview: {{ selectedCV.name }}</div>
+        <div class="preview-controls">
+          <div class="preview-label">Preview: {{ selectedCV.name }}</div>
+          <button class="export-btn" @click="downloadPdf">Download PDF</button>
+        </div>
         <ResumePreview :markdown="selectedCV.markdown" :pageMode="store.pageMode" />
       </div>
       <div v-else class="empty-preview">
@@ -123,7 +135,13 @@ function formatDate(d: string) {
 }
 .load-btn:hover { background: #f5f5f5; }
 
+.preview-controls { display: flex; align-items: center; justify-content: space-between; }
 .preview-label { font-size: 0.8rem; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+.export-btn {
+  border: 1px solid #d0d0d0; background: #fafafa; border-radius: 8px;
+  padding: 6px 14px; font-weight: 600; font-size: 0.8rem; cursor: pointer;
+}
+.export-btn:hover { background: #eee; }
 .empty-preview {
   width: var(--page-w); min-height: 300px;
   background: #fff; border: 2px dashed #d9d9d9; border-radius: 12px;

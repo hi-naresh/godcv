@@ -39,11 +39,13 @@ ADD content:
    - section: "experience:CompanyKey" or "projects:ProjectKey"
    - content: a single bullet starting with "- "
 
-3. **Coursework projects** (type: "project") — If relevant coursework matches a JD requirement, suggest a project entry based on that academic work.
+3. **Coursework/personal projects** (type: "project") — Suggest realistic project entries the candidate could build or has built based on their skills and coursework. These fill JD gaps that existing projects don't cover.
    - section: "Projects"
    - content: full project entry in markdown format:
-     **ProjectName** at University | Stack - Tech1, Tech2
-     - One bullet describing the project outcome
+     **Project Name** at University **| Stack -** Tech1, Tech2
+     - One compelling bullet describing the project and its outcome/impact
+   - These must use ONLY technologies the candidate already knows
+   - Must be realistic — something they would actually build given their background
 
 REMOVE or REPLACE content:
 

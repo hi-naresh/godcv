@@ -1,45 +1,107 @@
 """GodCV CLI entry point.
 
 Usage:
-    godcv run              Start the server (port 9000)
+    godcv dev              Start backend + frontend dev servers (hot-reload)
+    godcv run              Start production server (serves built frontend)
     godcv run --port 8080  Start on custom port
-    godcv run --dev        Start with auto-reload + CORS for Vite dev server
+    godcv build            Build the frontend
 """
 import argparse
 import logging
+import os
+import signal
+import subprocess
 import sys
 from pathlib import Path
 
 LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)-25s %(message)s"
 LOG_DATE = "%H:%M:%S"
 
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
 
 def setup_logging(verbose: bool = False):
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(format=LOG_FORMAT, datefmt=LOG_DATE, level=level, stream=sys.stdout)
-    # Quiet noisy libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("aiosqlite").setLevel(logging.WARNING)
 
 
 def cmd_build(args):
-    import subprocess
     setup_logging()
     logger = logging.getLogger("godcv")
 
-    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
-    if not (frontend_dir / "package.json").exists():
-        logger.error("frontend/ directory not found at %s", frontend_dir)
+    if not (FRONTEND_DIR / "package.json").exists():
+        logger.error("frontend/ directory not found at %s", FRONTEND_DIR)
         sys.exit(1)
 
     logger.info("Installing frontend dependencies...")
-    subprocess.run(["npm", "install"], cwd=str(frontend_dir), check=True)
+    subprocess.run(["npm", "install"], cwd=str(FRONTEND_DIR), check=True)
 
     logger.info("Building frontend...")
-    subprocess.run(["npm", "run", "build"], cwd=str(frontend_dir), check=True)
+    subprocess.run(["npm", "run", "build"], cwd=str(FRONTEND_DIR), check=True)
 
-    logger.info("Frontend built successfully at %s/dist", frontend_dir)
+    logger.info("Frontend built successfully at %s/dist", FRONTEND_DIR)
+
+
+def cmd_dev(args):
+    """Start both backend (uvicorn --reload) and frontend (vite dev) in one command."""
+    setup_logging(args.verbose)
+    logger = logging.getLogger("godcv")
+
+    if not (FRONTEND_DIR / "package.json").exists():
+        logger.error("frontend/ directory not found at %s", FRONTEND_DIR)
+        sys.exit(1)
+
+    backend_port = args.port
+    logger.info("Starting GodCV dev mode")
+    logger.info("  Backend:  http://localhost:%d (auto-reload)", backend_port)
+    logger.info("  Frontend: http://localhost:3000 (hot-reload, proxies /api -> :%d)", backend_port)
+    logger.info("  Open http://localhost:3000 in your browser")
+    logger.info("  Press Ctrl+C to stop both")
+
+    procs = []
+    try:
+        # Start backend
+        backend_proc = subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "backend.main:app",
+             "--host", "0.0.0.0", "--port", str(backend_port), "--reload"],
+            env={**os.environ},
+        )
+        procs.append(backend_proc)
+
+        # Start frontend
+        frontend_proc = subprocess.Popen(
+            ["npm", "run", "dev"],
+            cwd=str(FRONTEND_DIR),
+            env={**os.environ},
+        )
+        procs.append(frontend_proc)
+
+        # Wait for either to exit
+        while True:
+            for p in procs:
+                ret = p.poll()
+                if ret is not None:
+                    logger.info("Process exited with code %d, stopping all...", ret)
+                    raise KeyboardInterrupt
+            import time
+            time.sleep(0.5)
+
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+        for p in procs:
+            try:
+                p.send_signal(signal.SIGTERM)
+            except OSError:
+                pass
+        for p in procs:
+            try:
+                p.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                p.kill()
+        logger.info("Stopped.")
 
 
 def cmd_run(args):
@@ -47,15 +109,13 @@ def cmd_run(args):
     setup_logging(args.verbose)
     logger = logging.getLogger("godcv")
 
-    logger.info("Starting GodCV on port %d", args.port)
-    if args.dev:
-        logger.info("Dev mode: auto-reload ON, CORS for localhost:3000")
+    logger.info("Starting GodCV on http://localhost:%d", args.port)
 
     uvicorn.run(
         "backend.main:app",
         host=args.host,
         port=args.port,
-        reload=args.dev,
+        reload=False,
         log_level="debug" if args.verbose else "info",
     )
 
@@ -69,16 +129,21 @@ def main():
 
     sub.add_parser("build", help="Build the frontend (npm install + npm run build)")
 
-    run_parser = sub.add_parser("run", help="Start the GodCV server")
+    dev_parser = sub.add_parser("dev", help="Start backend + frontend with hot-reload (development)")
+    dev_parser.add_argument("--port", type=int, default=9000, help="Backend port (default: 9000)")
+    dev_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
+
+    run_parser = sub.add_parser("run", help="Start production server (serves built frontend)")
     run_parser.add_argument("--port", type=int, default=9000, help="Port (default: 9000)")
     run_parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
-    run_parser.add_argument("--dev", action="store_true", help="Dev mode with auto-reload")
     run_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
 
     args = parser.parse_args()
 
     if args.command == "build":
         cmd_build(args)
+    elif args.command == "dev":
+        cmd_dev(args)
     elif args.command == "run":
         cmd_run(args)
     else:

@@ -33,12 +33,15 @@ git clone https://github.com/hi-naresh/godcv.git
 cd godcv
 python -m venv venv && source venv/bin/activate
 pip install -e .
+cd frontend && npm install && cd ..
 echo "GEMINI_API_KEY=your_key" > .env
-godcv build   # builds the frontend
-godcv run     # starts everything on :9000
+
+godcv dev     # starts backend + frontend with hot-reload
 ```
 
-Open `http://localhost:9000`
+Open `http://localhost:3000`
+
+For production: `godcv build && godcv run` → open `http://localhost:9000`
 
 See [Setup Guide](docs/setup.md) for detailed instructions.
 

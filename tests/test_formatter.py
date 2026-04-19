@@ -140,7 +140,10 @@ class TestProjectsFormatting:
             "- Built real-time pipeline."
         )
         result = validate_and_fix("projects", correct)
-        assert result == correct
+        # Formatter normalizes "| Stack -" to bold "**| Stack -**"
+        assert "**| Stack -**" in result
+        assert "**[DataFlow](https://github.com/test)**" in result
+        assert "- Built real-time pipeline." in result
 
 
 class TestGenericFormatting:

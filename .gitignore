@@ -8,10 +8,13 @@ venv/
 # Node
 node_modules/
 
-# Database
+# Database (auto-created on first run)
 data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.db-journal
 
-# Environment
+# Environment (contains API keys)
 .env
 .env.local
 
@@ -21,4 +24,9 @@ data/*.db
 # IDE
 .vscode/
 .idea/
+
+# Superpowers docs (auto-generated)
 /docs/superpowers/
+
+# Bugs/screenshots (local only)
+/bugs/

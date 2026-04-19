@@ -45,7 +45,15 @@ class OrchestratorAgent:
             order_example = '["Summary", "Experience", "Skills", "Education", "Projects", "Publications (optional)", "Volunteering and Interests"]'
             order_rule = "For mid-level+ roles: Experience comes first, then Skills, then Education."
 
+        from backend.services.candidate_profile import build_candidate_profile
+        candidate_facts = build_candidate_profile(resume_markdown)
+
         prompt = f"""You are a resume tailoring orchestrator. Analyze the job description and the resume below.
+
+CANDIDATE FACTS (pre-computed — trust these, do NOT re-interpret dates yourself):
+{candidate_facts}
+
+Use the CANDIDATE FACTS above as ground truth. If it says a degree is COMPLETED, it IS completed — do not contradict this anywhere in your response (analysis, scoring, or gap_suggestions).
 
 STEP 1: Extract the job title, company name, and position level from the JD.
 STEP 2: Decide which resume sections need modification and which should stay unchanged.
@@ -54,33 +62,44 @@ STEP 3: For each section that needs changes, specify what agent should handle it
 IMPORTANT RULES:
 - Frontmatter (between --- markers at the top) is NEVER modified
 - Volunteering section is almost always kept unchanged
-- Only modify sections where the job description demands different emphasis
-- For Experience, decide PER ENTRY whether to modify or keep
-- Preserve the user's truthful experience -- only change wording and emphasis, never fabricate
+- The candidate's REAL work and achievements must be preserved — you refine how they're PRESENTED, not what they did
+- For Experience: the company, role, and core work are FIXED truths. What changes is EMPHASIS, KEYWORDS, and FRAMING
+- For Projects: these demonstrate capability. Rewrite bullets to highlight JD-relevant skills demonstrated
 - SECTION ORDER: {order_rule}
 
+STRATEGY — Think like a recruiter reading this resume for the JD:
+1. What keywords/skills does the JD REQUIRE? Map each to the resume
+2. Which experience entries demonstrate those skills? Those get "rewrite" to emphasize the overlap
+3. Which projects prove the candidate can do what the JD asks? Promote and rewrite those
+4. Skills section should lead with what the JD values most
+
 AVAILABLE AGENTS AND ACTIONS:
-- agent: "summary", action: "rewrite" -- rewrite the summary to match job requirements
-- agent: "skills", action: "reorder" -- reorder and emphasize relevant skills (with promote/demote lists)
-- agent: "experience", entry: "<CompanyKey>", action: "rewrite"|"include"|"exclude" -- per job entry
-  - "include": keep this entry as-is (relevant, no changes needed)
-  - "exclude": drop this entry entirely (not relevant for this role)
-  - "rewrite": include but rewrite bullets to better match the JD
-- agent: "projects", entry: "<ProjectKey>", action: "rewrite"|"include"|"exclude" -- per project entry
-  - Same include/exclude/rewrite logic as experience
-  - Prioritize projects whose tech stack matches the JD
-- agent: "education", action: "rewrite" -- refine coursework emphasis (reorder courses, align terminology with JD)
-  - Use when the JD has specific technical requirements that match coursework topics
-  - The agent will NOT change degrees/universities/dates — only coursework lists
-- agent: "publications", action: "create" -- generate a Publications section
-  - ONLY use when the JD explicitly values research, publications, or academic output
-  - OR when adding publications would give a meaningful edge (research roles, PhD-level positions, academic jobs)
-  - The agent creates entries from the candidate's coursework projects and thesis work
-  - Do NOT use for standard industry roles that don't value publications
+- agent: "summary", action: "rewrite" — rewrite to lead with the candidate's strongest JD-match
+- agent: "skills", action: "reorder" — reorder categories and skills within them; promote JD-relevant, demote others
+- agent: "experience", entry: "<CompanyKey>", action: "rewrite"|"include"|"exclude"
+  - "rewrite": reframe bullets using JD keywords and terminology (most entries should be rewritten)
+  - "include": keep as-is only if already well-aligned with JD
+  - "exclude": drop only if completely irrelevant AND space is needed
+  - INSTRUCTIONS must say WHICH JD requirements this entry should emphasize
+- agent: "projects", entry: "<ProjectKey>", action: "rewrite"|"include"|"exclude"
+  - "rewrite": INSTRUCTIONS must be SPECIFIC about this project's relevance:
+    - Is this project DIRECTLY relevant? → "EXPAND: this demonstrates [JD skill X, Y]. Highlight [specific aspect]."
+    - Is it tangentially relevant? → "CONDENSE to 1-2 bullets. Only highlight [transferable skill]."
+    - Is it irrelevant? → use "exclude" instead
+  - Do NOT tell the agent to force JD buzzwords into irrelevant projects — that's dishonest
+  - You may set "generate_projects": true on ONE projects tool_call (without entry) to generate
+    1-2 new project entries based on the candidate's skills that fill JD gaps.
+    When using generate_projects, also set "candidate_skills" to a summary of skills and coursework.
+- agent: "education", action: "rewrite" — reorder coursework to lead with JD-relevant topics
+  - Only changes coursework lists, NOT degrees/universities/dates
+
+DO NOT use agent: "publications" — it is not available.
+DO NOT fabricate professional work experience or company names.
 
 ENTRY SELECTION RULES:
-- You MUST provide an action for EVERY experience and project entry (include, exclude, or rewrite)
+- You MUST provide an action for EVERY experience and project entry
 - You MUST use the EXACT entry keys provided in the ENTRY KEYS section below (if provided)
+- DEFAULT to "rewrite" — only use "include" if the entry is already perfectly aligned
 - Prefer entries most relevant to the job description
 - When excluding, drop the least relevant entries first
 {insights_context}{seniority_context}
@@ -104,6 +123,7 @@ For "gap_suggestions" — list specific weaknesses the candidate has for THIS jo
 - Missing project types or technologies
 - Soft skill gaps (leadership, mentoring, etc.)
 - Be brutally honest — these help the user understand what tailoring alone cannot fix
+- Do NOT contradict CANDIDATE FACTS above. If it says a degree is COMPLETED, do not list it as a gap.
 
 CRITICAL: Keep your response CONCISE. Instructions must be 1-2 short sentences max. Key requirements and matched strengths should be short phrases, not full sentences.
 

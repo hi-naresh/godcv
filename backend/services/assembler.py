@@ -69,7 +69,7 @@ def assemble_resume(
             if key in modified_sections:
                 parts.append(modified_sections[key])
             if i < len(ordered_keys) - 1:
-                parts.append("\n---")
+                parts.append("\n\n---")
             continue
 
         if key in modified_sections:
@@ -92,7 +92,7 @@ def assemble_resume(
             parts.append(str(original))
 
         if i < len(ordered_keys) - 1:
-            parts.append("\n---")
+            parts.append("\n\n---")
 
     return "\n".join(parts) + "\n"
 
