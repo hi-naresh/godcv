@@ -20,6 +20,22 @@ async def get_saved_cv(cv_id: int) -> dict | None:
 
 async def save_cv(profile_id: int, name: str, markdown: str, job_title: str | None = None, company: str | None = None) -> dict:
     db = await get_db()
+
+    # Check if a CV with same name already exists for this profile — update instead of duplicating
+    existing = await db.execute(
+        "SELECT id FROM saved_cvs WHERE profile_id = ? AND name = ?",
+        (profile_id, name),
+    )
+    row = await existing.fetchone()
+
+    if row:
+        await db.execute(
+            "UPDATE saved_cvs SET markdown = ?, job_title = ?, company = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (markdown, job_title, company, row["id"]),
+        )
+        await db.commit()
+        return await get_saved_cv(row["id"])
+
     cursor = await db.execute(
         "INSERT INTO saved_cvs (profile_id, name, markdown, job_title, company) VALUES (?, ?, ?, ?, ?)",
         (profile_id, name, markdown, job_title, company),
