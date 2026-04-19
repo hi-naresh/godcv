@@ -67,5 +67,22 @@ class TailoringHistoryResponse(BaseModel):
     created_at: str
 
 
+class SavedCVCreate(BaseModel):
+    name: str
+    markdown: str
+    job_title: str | None = None
+    company: str | None = None
+
+
+class SavedCVResponse(BaseModel):
+    id: int
+    profile_id: int
+    name: str
+    markdown: str
+    job_title: str | None
+    company: str | None
+    created_at: str
+
+
 class ExportRequest(BaseModel):
     markdown: str

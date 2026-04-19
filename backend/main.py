@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from backend.db.database import get_db, close_db
-from backend.routers import profile, tailor, jobs, export
+from backend.routers import profile, tailor, jobs, export, saved_cvs
 from backend.config import FRONTEND_DIST
 
 logger = logging.getLogger("godcv.app")
@@ -37,6 +37,7 @@ app.include_router(profile.router)
 app.include_router(tailor.router)
 app.include_router(jobs.router)
 app.include_router(export.router)
+app.include_router(saved_cvs.router)
 
 
 @app.get("/api/health")

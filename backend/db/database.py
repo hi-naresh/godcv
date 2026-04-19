@@ -50,6 +50,16 @@ async def _init_tables(db: aiosqlite.Connection):
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS saved_cvs (
+            id INTEGER PRIMARY KEY,
+            profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            markdown TEXT NOT NULL,
+            job_title TEXT,
+            company TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS tailoring_history (
             id INTEGER PRIMARY KEY,
             profile_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,

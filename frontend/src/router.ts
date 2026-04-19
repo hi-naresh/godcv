@@ -6,6 +6,7 @@ const routes = [
   { path: '/history', component: () => import('./views/HistoryView.vue') },
   { path: '/preferences', component: () => import('./views/PreferencesView.vue') },
   { path: '/roles', component: () => import('./views/RolesView.vue') },
+  { path: '/saved', component: () => import('./views/SavedCVsView.vue') },
 ]
 
 export default createRouter({

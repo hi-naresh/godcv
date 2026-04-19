@@ -14,6 +14,7 @@ const hasProfile = ref(false)
 const saving = ref(false)
 const msg = ref('')
 const loaded = ref(false)
+const rawMode = ref(false)
 
 const fontSize = computed(() => {
   const m = store.markdown.match(/font_size:\s*([\d.]+)/)
@@ -111,11 +112,19 @@ async function save() {
 
     <!-- RIGHT: Live Preview -->
     <div class="profile-right">
-      <div class="preview-label">Preview</div>
+      <div class="preview-header">
+        <div class="preview-label">Preview</div>
+        <div class="mode-toggle">
+          <button :class="{ active: !rawMode }" @click="rawMode = false">Preview</button>
+          <button :class="{ active: rawMode }" @click="rawMode = true">Markdown</button>
+        </div>
+      </div>
       <ResumePreview
         v-if="store.markdown"
         :markdown="store.markdown"
         :pageMode="store.pageMode"
+        :rawMode="rawMode"
+        @update:markdown="onResumeUpdate"
       />
       <div v-else class="empty-preview">
         <p>Fill in your resume to see a live preview</p>
@@ -143,10 +152,22 @@ async function save() {
   display: flex; flex-direction: column; gap: 8px;
 }
 
+.preview-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
 .preview-label {
   font-size: 0.8rem; font-weight: 600; color: #999; text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+.mode-toggle {
+  display: flex; border: 1px solid #d0d0d0; border-radius: 6px; overflow: hidden;
+}
+.mode-toggle button {
+  padding: 4px 14px; border: none; background: #fff; font-size: 0.75rem;
+  font-weight: 600; cursor: pointer; color: #666;
+}
+.mode-toggle button.active { background: #111; color: #fff; }
+.mode-toggle button:not(.active):hover { background: #f5f5f5; }
 
 .empty-preview {
   width: var(--page-w); min-height: 300px;

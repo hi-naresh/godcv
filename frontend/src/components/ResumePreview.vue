@@ -7,6 +7,7 @@ const props = defineProps<{
   markdown: string
   originalMarkdown?: string
   pageMode: 'single' | 'multi'
+  rawMode?: boolean
   agentStatuses?: Record<string, 'pending' | 'running' | 'done'>
   suggestions?: Suggestion[]
 }>()
@@ -14,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'accept-suggestion': [id: string]
   'deny-suggestion': [id: string]
+  'update:markdown': [value: string]
 }>()
 
 const { renderResume, getResumeSettings } = useMarkdown()
@@ -285,14 +287,30 @@ onUnmounted(() => {
 
 <template>
   <div :class="['preview-container', { 'multi-page': pageMode === 'multi' }]">
-    <section :class="['sheet', { 'sheet-multi': pageMode === 'multi' }]">
+    <section v-show="!rawMode" :class="['sheet', { 'sheet-multi': pageMode === 'multi' }]">
       <div ref="contentRef" class="sheet-content" v-html="renderedHtml" />
       <div class="warn" v-show="showWarn && pageMode === 'single'">Content exceeds one page at minimum size.</div>
     </section>
+    <textarea
+      v-show="rawMode"
+      class="raw-editor"
+      :value="markdown"
+      @input="emit('update:markdown', ($event.target as HTMLTextAreaElement).value)"
+      spellcheck="false"
+    />
   </div>
 </template>
 
 <style scoped>
+.raw-editor {
+  width: var(--page-w); min-height: var(--page-h);
+  font-family: ui-monospace, 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 0.8rem; line-height: 1.5;
+  padding: 12px; border: 1px solid #d0d0d0; border-radius: 8px;
+  resize: vertical; background: #fafafa; color: #111;
+  white-space: pre-wrap; word-wrap: break-word;
+}
+.raw-editor:focus { outline: none; border-color: #667eea; }
 .preview-container {
   flex: 1;
   display: flex;

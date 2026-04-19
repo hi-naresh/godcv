@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useProfile } from '../composables/useProfile'
 import { useTailor } from '../composables/useTailor'
+import { useSavedCVs } from '../composables/useSavedCVs'
 import ResumePreview from '../components/ResumePreview.vue'
 import SectionEditor from '../components/SectionEditor.vue'
 import JobCard from '../components/JobCard.vue'
@@ -14,6 +15,9 @@ const props = defineProps<{ apiKey?: string }>()
 const store = useEditorStore()
 const { fetchProfile } = useProfile()
 const { analyzeJob, tailorJob } = useTailor()
+const { saveCV } = useSavedCVs()
+const saveMsg = ref('')
+const rawMode = ref(false)
 
 onMounted(async () => {
   const p = await fetchProfile()
@@ -88,80 +92,45 @@ function tailorCurrentJob() {
   tailorJob(activeJob.value.id, getApiKey(), store.markdown)
 }
 
-async function exportPdf() {
+function exportPdf() {
   const sheet = document.querySelector('.sheet') as HTMLElement
   if (!sheet) return
 
-  const { default: html2canvas } = await import('html2canvas')
-  const { default: jsPDF } = await import('jspdf')
+  // Strip suggestion highlights for clean print
+  sheet.classList.add('export-mode')
 
-  // Temporarily clean up: remove box-shadow and strip suggestion highlights
-  const origShadow = sheet.style.boxShadow
-  sheet.style.boxShadow = 'none'
+  // Use native print for vector-quality PDF
+  window.print()
 
-  // Hide suggestion styling for clean PDF
-  const sugElements = sheet.querySelectorAll('.suggestion, .suggestion-remove, .suggestion-replace, .sug-tooltip, .sug-old, .refining-badge')
-  const origStyles: { el: HTMLElement; display: string; bg: string; border: string; textDec: string; color: string }[] = []
-  sugElements.forEach((el) => {
-    const htmlEl = el as HTMLElement
-    const cs = htmlEl.style
-    origStyles.push({ el: htmlEl, display: cs.display, bg: cs.background, border: cs.borderLeft, textDec: cs.textDecoration, color: cs.color })
-    if (htmlEl.classList.contains('sug-tooltip') || htmlEl.classList.contains('refining-badge')) {
-      htmlEl.style.display = 'none'
-    }
-    if (htmlEl.classList.contains('sug-old')) {
-      htmlEl.style.display = 'none'
-    }
-    htmlEl.style.background = 'none'
-    htmlEl.style.borderLeft = 'none'
-    htmlEl.style.textDecoration = 'none'
-    htmlEl.style.color = 'inherit'
-  })
+  // Restore after print dialog closes
+  window.addEventListener('afterprint', () => {
+    sheet.classList.remove('export-mode')
+  }, { once: true })
+  // Fallback: remove after a short delay in case afterprint doesn't fire
+  setTimeout(() => sheet.classList.remove('export-mode'), 2000)
+}
 
-  try {
-    const pageW = 210
-    const pageH = 297
-    const isMulti = currentPageMode.value === 'multi'
+async function saveCurrent() {
+  const job = activeJob.value
+  const md = activeMarkdown.value
+  if (!md?.trim()) return
 
-    const canvas = await html2canvas(sheet, { scale: 2, useCORS: true })
-    const imgData = canvas.toDataURL('image/jpeg', 0.98)
-    const imgH = (canvas.height * pageW) / canvas.width
+  const jobTitle = job?.analysis?.job_title || job?.title || ''
+  const company = job?.analysis?.company || ''
+  const defaultName = jobTitle ? `${jobTitle}${company ? ' - ' + company : ''}` : 'Saved CV'
+  const name = prompt('Name this CV:', defaultName)
+  if (!name) return
 
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+  await saveCV(name, md, jobTitle, company)
+  saveMsg.value = 'CV saved!'
+  setTimeout(() => saveMsg.value = '', 2000)
+}
 
-    if (!isMulti || imgH <= pageH) {
-      // Single page: fit to A4
-      pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH)
-    } else {
-      // Multi-page: split canvas into A4-sized chunks
-      const totalPages = Math.ceil(imgH / pageH)
-      for (let i = 0; i < totalPages; i++) {
-        if (i > 0) pdf.addPage()
-        const srcY = (i * pageH / imgH) * canvas.height
-        const srcH = Math.min((pageH / imgH) * canvas.height, canvas.height - srcY)
-        const pageCanvas = document.createElement('canvas')
-        pageCanvas.width = canvas.width
-        pageCanvas.height = srcH
-        const ctx = pageCanvas.getContext('2d')!
-        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH)
-        const pageImg = pageCanvas.toDataURL('image/jpeg', 0.98)
-        const drawH = (srcH * pageW) / canvas.width
-        pdf.addImage(pageImg, 'JPEG', 0, 0, pageW, drawH)
-      }
-    }
-
-    pdf.save('resume.pdf')
-  } finally {
-    sheet.style.boxShadow = origShadow
-    // Restore suggestion styling
-    origStyles.forEach(({ el, display, bg, border, textDec, color }) => {
-      el.style.display = display
-      el.style.background = bg
-      el.style.borderLeft = border
-      el.style.textDecoration = textDec
-      el.style.color = color
-    })
-  }
+function discardChanges() {
+  const job = activeJob.value
+  if (!job) return
+  if (!confirm('Discard tailored changes and revert to original resume?')) return
+  store.updateJob(job.id, { result: undefined })
 }
 
 function acceptSuggestion(sugId: string) {
@@ -298,6 +267,13 @@ function denySuggestion(sugId: string) {
       />
 
       <div class="preview-controls">
+        <div class="mode-toggle">
+          <button :class="{ active: !rawMode }" @click="rawMode = false">Preview</button>
+          <button :class="{ active: rawMode }" @click="rawMode = true">Markdown</button>
+        </div>
+        <button v-if="activeJob?.result" class="save-cv-btn" @click="saveCurrent">Save CV</button>
+        <button v-if="activeJob?.result" class="discard-btn" @click="discardChanges">Discard</button>
+        <span v-if="saveMsg" class="save-msg">{{ saveMsg }}</span>
         <button class="export-btn" @click="exportPdf">Download PDF</button>
       </div>
 
@@ -318,10 +294,12 @@ function denySuggestion(sugId: string) {
           :markdown="activeMarkdown"
           :originalMarkdown="activeJob?.result ? store.markdown : undefined"
           :pageMode="currentPageMode"
+          :rawMode="rawMode"
           :agentStatuses="activeAgentStatuses"
           :suggestions="activeSuggestions"
           @accept-suggestion="acceptSuggestion"
           @deny-suggestion="denySuggestion"
+          @update:markdown="onSectionUpdate"
         />
       </div>
 
@@ -392,12 +370,34 @@ function denySuggestion(sugId: string) {
 .preview-controls {
   display: flex; align-items: center; gap: 10px;
 }
+.mode-toggle {
+  display: flex; border: 1px solid #d0d0d0; border-radius: 6px; overflow: hidden;
+}
+.mode-toggle button {
+  padding: 4px 14px; border: none; background: #fff; font-size: 0.75rem;
+  font-weight: 600; cursor: pointer; color: #666;
+}
+.mode-toggle button.active { background: #111; color: #fff; }
+.mode-toggle button:not(.active):hover { background: #f5f5f5; }
 .export-btn {
   margin-left: auto; border: 1px solid #d0d0d0; background: #fafafa;
   border-radius: 8px; padding: 6px 14px; font-weight: 600;
   font-size: 0.8rem; cursor: pointer;
 }
 .export-btn:hover { background: #eee; }
+.save-cv-btn {
+  border: 1px solid #28a745; background: #28a745; color: #fff;
+  border-radius: 8px; padding: 6px 14px; font-weight: 600;
+  font-size: 0.8rem; cursor: pointer;
+}
+.save-cv-btn:hover { background: #218838; }
+.discard-btn {
+  border: 1px solid #d0d0d0; background: #fff;
+  border-radius: 8px; padding: 6px 14px; font-weight: 600;
+  font-size: 0.8rem; cursor: pointer; color: #d00;
+}
+.discard-btn:hover { background: #fff0f0; }
+.save-msg { color: #28a745; font-size: 0.8rem; font-weight: 600; }
 
 .error-banner {
   background: #fff0f0; border: 1px solid #fcc; border-radius: 10px;

@@ -14,6 +14,7 @@ const apiKey = ref('')
         <RouterLink to="/" class="nav-link">Editor</RouterLink>
         <RouterLink to="/profile" class="nav-link">Profile</RouterLink>
         <RouterLink to="/roles" class="nav-link">Roles</RouterLink>
+        <RouterLink to="/saved" class="nav-link">Saved CVs</RouterLink>
         <RouterLink to="/history" class="nav-link">History</RouterLink>
         <RouterLink to="/preferences" class="nav-link">Preferences</RouterLink>
       </div>

@@ -166,6 +166,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .sheet-content .sug-deny { color: #dc3545; }
 .sheet-content .sug-deny:hover { background: #fdd; }
 
+/* Export mode: strip all suggestion/highlight styling for clean PDF */
+.export-mode .suggestion,
+.export-mode .suggestion-remove,
+.export-mode .suggestion-replace,
+.export-mode .suggestion-project,
+.export-mode .sug-new,
+.export-mode .changed-content {
+  background: none !important;
+  border-left: none !important;
+  padding-left: 0 !important;
+  text-decoration: none !important;
+  color: inherit !important;
+}
+.export-mode .sug-tooltip,
+.export-mode .sug-old,
+.export-mode .refining-badge {
+  display: none !important;
+}
+
 @page { size: A4; margin: 0; }
 @media print {
   /* Hide everything that isn't the resume */
