@@ -92,6 +92,11 @@ async def tailor_resume(request: TailorRequest):
             parsed = parse_resume(resume_md)
 
             # Phase 3: Dispatch agents
+            role_type = plan.get("analysis", {}).get("role_type", "")
+            # Inject role_type into each tool_call so agents know the domain
+            for call in tool_calls:
+                call["role_type"] = role_type
+
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
             for call in active_calls:
                 agent_name = call["agent"]
@@ -229,6 +234,10 @@ async def execute_tailoring(request: ExecuteRequest):
             parsed = parse_resume(resume_md)
 
             # Phase 2: Dispatch agents
+            role_type = plan.get("analysis", {}).get("role_type", "")
+            for call in tool_calls:
+                call["role_type"] = role_type
+
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
             for call in active_calls:
                 agent_name = call["agent"]
