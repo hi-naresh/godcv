@@ -37,11 +37,12 @@ class OrchestratorAgent:
             seniority_context = f"\nSENIORITY CONTEXT:\n{seniority_guidance.get(seniority_level, '')}\n"
 
         # Determine section order example based on seniority
+        # Note: Publications is optional — only include in section_order if you're creating one
         if seniority_level in ("graduate", "junior"):
-            order_example = '["Summary", "Education", "Skills", "Experience", "Projects", "Volunteering and Interests"]'
+            order_example = '["Summary", "Education", "Skills", "Experience", "Projects", "Publications (optional)", "Volunteering and Interests"]'
             order_rule = "For graduate/junior roles: Education MUST come BEFORE Experience and Skills."
         else:
-            order_example = '["Summary", "Experience", "Skills", "Education", "Projects", "Volunteering and Interests"]'
+            order_example = '["Summary", "Experience", "Skills", "Education", "Projects", "Publications (optional)", "Volunteering and Interests"]'
             order_rule = "For mid-level+ roles: Experience comes first, then Skills, then Education."
 
         prompt = f"""You are a resume tailoring orchestrator. Analyze the job description and the resume below.
@@ -52,7 +53,7 @@ STEP 3: For each section that needs changes, specify what agent should handle it
 
 IMPORTANT RULES:
 - Frontmatter (between --- markers at the top) is NEVER modified
-- Education and Volunteering sections are almost always kept unchanged in CONTENT
+- Volunteering section is almost always kept unchanged
 - Only modify sections where the job description demands different emphasis
 - For Experience, decide PER ENTRY whether to modify or keep
 - Preserve the user's truthful experience -- only change wording and emphasis, never fabricate
@@ -68,6 +69,14 @@ AVAILABLE AGENTS AND ACTIONS:
 - agent: "projects", entry: "<ProjectKey>", action: "rewrite"|"include"|"exclude" -- per project entry
   - Same include/exclude/rewrite logic as experience
   - Prioritize projects whose tech stack matches the JD
+- agent: "education", action: "rewrite" -- refine coursework emphasis (reorder courses, align terminology with JD)
+  - Use when the JD has specific technical requirements that match coursework topics
+  - The agent will NOT change degrees/universities/dates — only coursework lists
+- agent: "publications", action: "create" -- generate a Publications section
+  - ONLY use when the JD explicitly values research, publications, or academic output
+  - OR when adding publications would give a meaningful edge (research roles, PhD-level positions, academic jobs)
+  - The agent creates entries from the candidate's coursework projects and thesis work
+  - Do NOT use for standard industry roles that don't value publications
 
 ENTRY SELECTION RULES:
 - You MUST provide an action for EVERY experience and project entry (include, exclude, or rewrite)

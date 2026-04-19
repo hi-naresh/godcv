@@ -5,6 +5,8 @@ from backend.agents.summary import SummaryAgent
 from backend.agents.skills import SkillsAgent
 from backend.agents.experience import ExperienceAgent
 from backend.agents.projects import ProjectsAgent
+from backend.agents.education import EducationAgent
+from backend.agents.publications import PublicationsAgent
 from backend.services.gemini import GeminiClient
 from backend.services.formatter import validate_and_fix
 
@@ -20,6 +22,8 @@ class AgentBus:
             "skills": SkillsAgent(gemini),
             "experience": ExperienceAgent(gemini),
             "projects": ProjectsAgent(gemini),
+            "education": EducationAgent(gemini),
+            "publications": PublicationsAgent(gemini),
         }
 
     async def dispatch(
@@ -64,6 +68,17 @@ class AgentBus:
                 section_content = sections.get(section_key, "")
                 if isinstance(section_content, dict):
                     section_content = section_content.get("_full", "")
+
+                # For publications agent, provide education + projects as context
+                if agent_name == "publications" and not section_content:
+                    context_parts = []
+                    for ctx_key in ["Education", "Projects", "Experience"]:
+                        ctx = sections.get(ctx_key, "")
+                        if isinstance(ctx, dict):
+                            ctx = ctx.get("_full", "")
+                        if ctx:
+                            context_parts.append(f"## {ctx_key}\n{ctx}")
+                    section_content = "\n\n".join(context_parts)
 
                 tasks.append(
                     _run_single_agent(agent, agent_name, str(section_content), call, job_description)

@@ -37,19 +37,40 @@ def assemble_resume(
         ordered_keys = []
         remaining = list(original_keys)
         for planned in section_order:
+            matched = False
             for key in remaining:
                 if key.lower() == planned.lower():
                     ordered_keys.append(key)
                     remaining.remove(key)
+                    matched = True
                     break
+            # If planned section doesn't exist in original but is in modified_sections, add it
+            if not matched and modified_sections:
+                for mod_key in modified_sections:
+                    if mod_key.lower() == planned.lower() and mod_key not in ordered_keys:
+                        ordered_keys.append(mod_key)
+                        break
         # Append any sections not mentioned in the plan
         ordered_keys.extend(remaining)
     else:
         ordered_keys = original_keys
+        # Add new sections from modified_sections that aren't in original
+        if modified_sections:
+            for mod_key in modified_sections:
+                if mod_key not in ordered_keys and not any(k.lower() == mod_key.lower() for k in ordered_keys):
+                    ordered_keys.append(mod_key)
 
     for i, key in enumerate(ordered_keys):
         parts.append(f"\n# {key}")
-        original = sections[key]
+        original = sections.get(key)
+
+        # New section (e.g., Publications) — only in modified_sections
+        if original is None:
+            if key in modified_sections:
+                parts.append(modified_sections[key])
+            if i < len(ordered_keys) - 1:
+                parts.append("\n---")
+            continue
 
         if key in modified_sections:
             parts.append(modified_sections[key])
