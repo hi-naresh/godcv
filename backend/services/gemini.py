@@ -3,18 +3,69 @@ import json
 import re
 import logging
 from backend.config import (
-    GEMINI_ENDPOINT,
+    GEMINI_BASE_URL,
+    GEMINI_DEFAULT_MODEL,
     GEMINI_GENERATION_CONFIG,
     GEMINI_SAFETY_SETTINGS,
 )
 
 logger = logging.getLogger("godcv.gemini")
 
+# Global usage tracker (per-process, resets on restart)
+_usage = {
+    "total_requests": 0,
+    "total_prompt_tokens": 0,
+    "total_completion_tokens": 0,
+    "total_tokens": 0,
+    "errors": 0,
+    "model": GEMINI_DEFAULT_MODEL,
+}
+
+# Rate limit info from last response headers
+_rate_limits: dict = {}
+
+# Per-minute sliding window tracking
+import time
+_minute_log: list[dict] = []  # [{ts, prompt, completion}]
+_day_log: list[float] = []    # [timestamp]
+
+
+def _prune_logs():
+    now = time.time()
+    # Keep last 60s for per-minute stats
+    while _minute_log and now - _minute_log[0]["ts"] > 60:
+        _minute_log.pop(0)
+    # Keep last 24h for per-day stats
+    while _day_log and now - _day_log[0] > 86400:
+        _day_log.pop(0)
+
+
+def get_usage() -> dict:
+    _prune_logs()
+    rpm = len(_minute_log)
+    tpm = sum(e["prompt"] + e["completion"] for e in _minute_log)
+    rpd = len(_day_log)
+    return {
+        **_usage,
+        "rate_limits": {**_rate_limits},
+        "rpm": rpm,
+        "tpm": tpm,
+        "rpd": rpd,
+    }
+
+
+def reset_usage():
+    for k in _usage:
+        if k == "model":
+            continue
+        _usage[k] = 0
+
 
 class GeminiClient:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, model: str | None = None):
         self.api_key = api_key
-        self.endpoint = GEMINI_ENDPOINT
+        self.model = model or _usage.get("model", GEMINI_DEFAULT_MODEL)
+        self.endpoint = f"{GEMINI_BASE_URL}/models/{self.model}:generateContent"
 
     async def generate(self, prompt: str, json_mode: bool = False) -> str:
         """Call Gemini API and return the text response."""
@@ -40,7 +91,19 @@ class GeminiClient:
         except httpx.TimeoutException:
             raise RuntimeError("Gemini API request timed out (90s). Try again or use a shorter resume/JD.")
 
+        _usage["total_requests"] += 1
+        _usage["model"] = self.model
+
+        # Track rate limits from response headers
+        headers = response.headers
+        for h in ["x-ratelimit-limit-requests", "x-ratelimit-remaining-requests",
+                   "x-ratelimit-limit-tokens", "x-ratelimit-remaining-tokens",
+                   "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"]:
+            if h in headers:
+                _rate_limits[h.replace("x-ratelimit-", "")] = headers[h]
+
         if response.status_code != 200:
+            _usage["errors"] += 1
             try:
                 error_data = response.json()
                 msg = error_data.get("error", {}).get("message", "")
@@ -56,6 +119,19 @@ class GeminiClient:
             data = response.json()
         except Exception:
             raise RuntimeError("Gemini API returned non-JSON response")
+
+        # Track token usage
+        usage_meta = data.get("usageMetadata", {})
+        prompt_tokens = usage_meta.get("promptTokenCount", 0)
+        completion_tokens = usage_meta.get("candidatesTokenCount", 0)
+        _usage["total_prompt_tokens"] += prompt_tokens
+        _usage["total_completion_tokens"] += completion_tokens
+        _usage["total_tokens"] += prompt_tokens + completion_tokens
+
+        # Sliding window logs
+        now = time.time()
+        _minute_log.append({"ts": now, "prompt": prompt_tokens, "completion": completion_tokens})
+        _day_log.append(now)
 
         candidates = data.get("candidates", [])
         if not candidates:

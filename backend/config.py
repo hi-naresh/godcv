@@ -6,7 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GODCV_GEMINI_API_KEY", "")
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
+GEMINI_ENDPOINT = f"{GEMINI_BASE_URL}/models/{GEMINI_DEFAULT_MODEL}:generateContent"
 GEMINI_GENERATION_CONFIG = {
     "temperature": 0.7,
     "topK": 40,

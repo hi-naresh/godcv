@@ -18,6 +18,7 @@ const { analyzeJob, tailorJob } = useTailor()
 const { saveCV } = useSavedCVs()
 const saveMsg = ref('')
 const rawMode = ref(false)
+const justified = ref(true)
 
 onMounted(async () => {
   const p = await fetchProfile()
@@ -273,6 +274,7 @@ function denySuggestion(sugId: string) {
         </div>
         <button v-if="activeJob?.result" class="save-cv-btn" @click="saveCurrent">Save CV</button>
         <button v-if="activeJob?.result" class="discard-btn" @click="discardChanges">Discard</button>
+        <button :class="['justify-btn', { active: justified }]" @click="justified = !justified" title="Toggle justified text">J</button>
         <span v-if="saveMsg" class="save-msg">{{ saveMsg }}</span>
         <button class="export-btn" @click="exportPdf">Download PDF</button>
       </div>
@@ -289,7 +291,7 @@ function denySuggestion(sugId: string) {
         </div>
       </div>
 
-      <div v-else class="preview-area">
+      <div v-else :class="['preview-area', { justified }]">
         <ResumePreview
           :markdown="activeMarkdown"
           :originalMarkdown="activeJob?.result ? store.markdown : undefined"
@@ -320,9 +322,9 @@ function denySuggestion(sugId: string) {
 
 .left-panel {
   width: min(440px, 34vw); min-width: 320px;
-  position: sticky; top: 60px; align-self: flex-start;
+  position: sticky; top: 18px; align-self: flex-start;
   display: flex; flex-direction: column; gap: 12px;
-  max-height: calc(100vh - 80px); overflow-y: auto;
+  max-height: calc(100vh - 36px); overflow-y: auto;
 }
 
 .panel-section {
@@ -379,6 +381,13 @@ function denySuggestion(sugId: string) {
 }
 .mode-toggle button.active { background: #111; color: #fff; }
 .mode-toggle button:not(.active):hover { background: #f5f5f5; }
+.justify-btn {
+  width: 28px; height: 28px; border: 1px solid #d0d0d0; border-radius: 6px;
+  background: #fff; font-size: 0.8rem; font-weight: 800; cursor: pointer;
+  color: #999; font-family: Georgia, serif;
+}
+.justify-btn.active { background: #111; color: #fff; border-color: #111; }
+.justify-btn:not(.active):hover { background: #f5f5f5; }
 .export-btn {
   margin-left: auto; border: 1px solid #d0d0d0; background: #fafafa;
   border-radius: 8px; padding: 6px 14px; font-weight: 600;

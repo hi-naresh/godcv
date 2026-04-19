@@ -311,7 +311,7 @@ describe('assembleEducationEntries', () => {
 
     const result = assembleEducationEntries(entries)
     expect(result).toBe(
-      '**M.Sc. in AI - Brunel University** *Jan 2025 – Jan 2026*  \n***Coursework**:* Predictive Analytics.'
+      '**M.Sc. in AI - Brunel University** *Jan 2025 – Jan 2026*\n\n***Coursework**:* Predictive Analytics.'
     )
   })
 

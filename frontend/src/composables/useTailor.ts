@@ -1,11 +1,25 @@
 import { useEditorStore } from '../stores/editor'
+import { useToast } from './useToast'
 
 export function useTailor() {
   const store = useEditorStore()
+  const { show: showToast } = useToast()
 
   function startTailoring(jobId: string, apiKey?: string, resumeOverride?: string, analyzeOnly: boolean = false) {
     const job = store.jobs.get(jobId)
     if (!job) return
+
+    // Check for API key before starting
+    const key = apiKey || store.profile?.gemini_api_key || ''
+    if (!key) {
+      showToast(
+        'No API key configured. Add your Gemini API key to use AI tailoring.',
+        'warning',
+        { label: 'Go to Preferences', route: '/preferences' },
+        8000,
+      )
+      return
+    }
 
     store.resetJobTailoring(jobId)
     store.updateJob(jobId, {
@@ -36,6 +50,9 @@ export function useTailor() {
           message = `${response.status}: ${response.statusText || 'Unknown error'}`
         }
         store.updateJob(jobId, { tailoringStatus: 'error', error: message })
+        if (message.toLowerCase().includes('api key')) {
+          showToast(message, 'error', { label: 'Go to Preferences', route: '/preferences' }, 8000)
+        }
         return
       }
 

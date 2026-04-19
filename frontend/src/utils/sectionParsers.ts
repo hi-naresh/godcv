@@ -263,12 +263,12 @@ export function assembleEducationEntries(entries: EntryData[]): string {
           header += ` *${entry.startDate} – ${entry.endDate}*`
         }
         if (entry.content) {
-          return `${header}  \n${entry.content}`
+          return `${header}\n\n${entry.content}`
         }
         return header
       }
       if (entry.content) {
-        return `${entry.header}\n${entry.content}`
+        return `${entry.header}\n\n${entry.content}`
       }
       return entry.header
     })

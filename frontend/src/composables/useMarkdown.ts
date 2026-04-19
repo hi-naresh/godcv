@@ -39,7 +39,7 @@ export function useMarkdown() {
     for (const key of ['portfolio', 'github', 'linkedin']) {
       if (data[key]) meta.push(`<a href="${linkify(data[key])}" target="_blank" rel="noopener">${safe(data[key])}</a>`)
     }
-    if (meta.length) parts.push(`<div class="meta">${meta.join(' &middot; ')}</div>`)
+    if (meta.length) parts.push(`<div class="meta">${meta.join('<span class="sep"> &middot; </span>')}</div>`)
     return parts.length ? `<header class="cv-head">${parts.join('')}<hr class="thin"/></header>` : ''
   }
 

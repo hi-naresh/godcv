@@ -141,14 +141,14 @@ async function save() {
 
 .profile-left {
   width: min(480px, 38vw); min-width: 340px;
-  position: sticky; top: 60px; align-self: flex-start;
+  position: sticky; top: 18px; align-self: flex-start;
   display: flex; flex-direction: column; gap: 10px;
-  max-height: calc(100vh - 80px); overflow-y: auto;
+  max-height: calc(100vh - 36px); overflow-y: auto;
 }
 
 .profile-right {
   flex: 1; max-width: 240mm;
-  position: sticky; top: 60px; align-self: flex-start;
+  position: sticky; top: 18px; align-self: flex-start;
   display: flex; flex-direction: column; gap: 8px;
 }
 

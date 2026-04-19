@@ -45,6 +45,54 @@ async def health():
     return {"status": "ok", "app": "godcv"}
 
 
+@app.get("/api/usage")
+async def get_usage():
+    from backend.services.gemini import get_usage as _get_usage
+    return _get_usage()
+
+
+@app.get("/api/models")
+async def list_models():
+    """List available Gemini models for the configured API key."""
+    import httpx
+    from backend.services.gemini import _usage
+    from backend.config import GEMINI_BASE_URL, GEMINI_API_KEY
+    from backend.services import profile as profile_service
+    profile = await profile_service.get_profile()
+    api_key = (profile.get("gemini_api_key", "") if profile else "") or GEMINI_API_KEY
+    if not api_key:
+        return {"models": [], "current": _usage.get("model", ""), "error": "No API key configured"}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(f"{GEMINI_BASE_URL}/models?key={api_key}")
+            if resp.status_code != 200:
+                return {"models": [], "current": _usage.get("model", ""), "error": f"API error {resp.status_code}"}
+            data = resp.json()
+            models = []
+            for m in data.get("models", []):
+                name = m.get("name", "").replace("models/", "")
+                if "generateContent" in str(m.get("supportedGenerationMethods", [])):
+                    models.append({
+                        "id": name,
+                        "displayName": m.get("displayName", name),
+                        "inputTokenLimit": m.get("inputTokenLimit", 0),
+                        "outputTokenLimit": m.get("outputTokenLimit", 0),
+                    })
+            return {"models": models, "current": _usage.get("model", "")}
+    except Exception as e:
+        return {"models": [], "current": _usage.get("model", ""), "error": str(e)}
+
+
+@app.post("/api/models/select")
+async def select_model(body: dict):
+    """Set the active model."""
+    from backend.services.gemini import _usage
+    model_id = body.get("model", "")
+    if model_id:
+        _usage["model"] = model_id
+    return {"current": _usage.get("model", "")}
+
+
 # Serve frontend (production)
 dist_path = Path(FRONTEND_DIST)
 if dist_path.exists() and (dist_path / "index.html").exists():
@@ -52,6 +100,8 @@ if dist_path.exists() and (dist_path / "index.html").exists():
 
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
+        if full_path.startswith("api/"):
+            return {"detail": "Not found"}
         file_path = dist_path / full_path
         if file_path.is_file():
             return FileResponse(file_path)

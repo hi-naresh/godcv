@@ -88,14 +88,14 @@ function formatDate(d: string) {
 }
 .saved-left {
   width: min(420px, 35vw); min-width: 300px;
-  position: sticky; top: 60px;
+  position: sticky; top: 18px;
   display: flex; flex-direction: column; gap: 10px;
-  max-height: calc(100vh - 80px); overflow-y: auto;
+  max-height: calc(100vh - 36px); overflow-y: auto;
 }
 .saved-left h2 { margin: 0; }
 .saved-right {
   flex: 1; max-width: 240mm;
-  position: sticky; top: 60px;
+  position: sticky; top: 18px;
   display: flex; flex-direction: column; gap: 8px;
 }
 .empty { color: #999; font-size: 0.9rem; padding: 20px 0; }

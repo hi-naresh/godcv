@@ -21,14 +21,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   font-family: Georgia, "Times New Roman", serif;
   font-size: var(--base-font-size); height: 100%;
   overflow: auto; padding-right: 1px; color: var(--text-color);
+  scrollbar-width: none; -ms-overflow-style: none;
   line-height: var(--line-height);
 }
 
+.sheet-content::-webkit-scrollbar { display: none; }
 .sheet-content .cv-head { margin-bottom: 0.3rem; }
 .sheet-content .name { font-size: 2.3rem; font-weight: 800; line-height: 1.05; }
 .sheet-content .role { font-weight: 600; margin: .15rem 0; }
-.sheet-content .meta { color: var(--subtle); font-size: .95em; }
+.sheet-content .meta { color: var(--subtle); font-size: .95em; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px 0; }
 .sheet-content .meta a { color: #0066cc; text-decoration: none; border-bottom: 1px solid rgba(0,0,0,.12); }
+.sheet-content .meta .sep { display: none; }
 .sheet-content hr.thin { border: 0; border-top: 1px solid var(--rule); margin: 0.3rem 0; }
 
 .sheet-content h1 { font-size: 1.15rem; font-weight: 800; margin: .5rem 0 .3rem; position: relative; }
@@ -44,6 +47,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .sheet-content h2 { font-size: 1.05rem; font-weight: 800; margin: .5rem 0 .3rem; }
 .sheet-content h3 { font-size: .95rem; font-weight: 700; margin: .5rem 0 .3rem; }
 .sheet-content p { margin: .2rem 0; line-height: var(--line-height); }
+.sheet-content p + p { margin-top: 0; }
 .sheet-content ul, .sheet-content ol { margin: .2rem 0 .2rem 1.1rem; line-height: var(--line-height); }
 .sheet-content li { margin: .1rem 0; line-height: var(--line-height); }
 .sheet-content strong { font-weight: 700; }
@@ -165,6 +169,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .sheet-content .sug-accept:hover { background: #fff3e0; }
 .sheet-content .sug-deny { color: #dc3545; }
 .sheet-content .sug-deny:hover { background: #fdd; }
+
+/* Justified mode: justify long text for even alignment */
+.justified .sheet-content p,
+.justified .sheet-content li {
+  text-align: justify;
+  text-align-last: left;
+}
+/* Don't justify entry headers that have floated dates (strong + em pattern) */
+.justified .sheet-content p:has(> strong + em) {
+  text-align: left;
+}
+.justified .sheet-content .name,
+.justified .sheet-content .role {
+  text-align: left;
+}
+.justified .sheet-content .meta {
+  text-align: left;
+}
 
 /* Export mode: strip all suggestion/highlight styling for clean PDF */
 .export-mode .suggestion,
