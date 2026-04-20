@@ -6,14 +6,17 @@ from backend.config import BASE_DIR
 
 router = APIRouter(prefix="/api/profile", tags=["profile"])
 
-SAMPLE_RESUME_PATH = BASE_DIR / "data" / "sample_resume.md"
+TEMPLATE_PATH = BASE_DIR / "data" / "template.md"
+RESUME_PATH = BASE_DIR / "data" / "resume.md"
 
 
 async def _seed_from_sample() -> dict | None:
-    """Auto-create a profile from sample_resume.md on first run."""
-    if not SAMPLE_RESUME_PATH.exists():
+    """Auto-create a profile from resume.md (or template.md if resume.md doesn't exist)."""
+    # Use resume.md if it exists (user's own resume), otherwise fall back to template
+    source = RESUME_PATH if RESUME_PATH.exists() else TEMPLATE_PATH
+    if not source.exists():
         return None
-    md = SAMPLE_RESUME_PATH.read_text(encoding="utf-8")
+    md = source.read_text(encoding="utf-8")
     # Extract name from frontmatter
     name = "New User"
     for line in md.split("\n"):
@@ -74,7 +77,7 @@ async def delete_insight(insight_id: int):
 
 @router.post("/reset")
 async def reset_all():
-    """Flush all data (CVs, roles, history, profile) and re-seed from sample_resume.md.
+    """Flush all data (CVs, roles, history, profile) and re-seed from template.md.
     Preserves LLM usage stats (in-memory, not in DB)."""
     from backend.db.database import get_db
     db = await get_db()
