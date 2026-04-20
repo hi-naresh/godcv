@@ -48,9 +48,9 @@ def build_candidate_profile(resume_md: str) -> str:
 
 def _parse_education(md: str, today: date) -> list[dict]:
     entries = []
-    # Match: **Degree - University** *Start – End*
+    # Match: **Degree - University** *Start – End* or **Start – End**
     pattern = re.compile(
-        r'\*\*(.+?)\*\*\s*\*(.+?)\s*[–—-]\s*(.+?)\*',
+        r'\*\*(.+?)\*\*\s*\*{1,2}(.+?)\s*[–—-]\s*(.+?)\*{1,2}',
         re.MULTILINE,
     )
     for m in pattern.finditer(md):
@@ -79,9 +79,9 @@ def _parse_education(md: str, today: date) -> list[dict]:
 
 def _parse_experience_dates(md: str, today: date) -> list[dict]:
     entries = []
-    # Match experience headers: **Role — Company** *Start – End*
+    # Match experience headers: **Role — Company** *Start – End* or **Start – End**
     pattern = re.compile(
-        r'\*\*(.+?[—–-]\s*.+?)\*\*\s*\*(.+?)\s*[–—-]\s*(.+?)\*',
+        r'\*\*(.+?[—–-]\s*.+?)\*\*\s*\*{1,2}(.+?)\s*[–—-]\s*(.+?)\*{1,2}',
         re.MULTILINE,
     )
     for m in pattern.finditer(md):

@@ -60,23 +60,13 @@ class AgentBus:
                 agent_name = call["agent"]
                 agent = self.agents.get(agent_name)
                 if not agent:
+                    self.log.warning("Unknown agent '%s' in tool_calls — skipping", agent_name)
                     continue
 
                 section_key = _find_section_key(sections, agent_name)
                 section_content = sections.get(section_key, "")
                 if isinstance(section_content, dict):
                     section_content = section_content.get("_full", "")
-
-                # For publications agent, provide education + projects as context
-                if agent_name == "publications" and not section_content:
-                    context_parts = []
-                    for ctx_key in ["Education", "Projects", "Experience"]:
-                        ctx = sections.get(ctx_key, "")
-                        if isinstance(ctx, dict):
-                            ctx = ctx.get("_full", "")
-                        if ctx:
-                            context_parts.append(f"## {ctx_key}\n{ctx}")
-                    section_content = "\n\n".join(context_parts)
 
                 tasks.append(
                     _run_single_agent(agent, agent_name, str(section_content), call, job_description)
@@ -103,14 +93,27 @@ class AgentBus:
                 entry_key = call.get("entry", "")
                 entry = entry_map.get(entry_key)
                 if not entry:
-                    # Try fuzzy match on key or full title
-                    for k, v in entry_map.items():
-                        title = v.get("title", "").lower()
-                        ek = entry_key.lower()
-                        if ek in k.lower() or k.lower() in ek or ek in title or k.lower() in ek:
-                            entry = v
-                            entry_key = k
-                            break
+                    # Try fuzzy match — require minimum 3 chars and prefer longer matches
+                    ek = entry_key.lower().strip()
+                    if len(ek) >= 3:
+                        best_match = None
+                        best_score = 0
+                        for k, v in entry_map.items():
+                            kl = k.lower()
+                            title = v.get("title", "").lower()
+                            # Score: exact substring match in key or title
+                            score = 0
+                            if ek == kl:
+                                score = 100
+                            elif ek in kl or kl in ek:
+                                score = max(len(ek), len(kl))
+                            elif ek in title:
+                                score = len(ek)
+                            if score > best_score and score >= 3:
+                                best_score = score
+                                best_match = (k, v)
+                        if best_match:
+                            entry_key, entry = best_match
                 if not entry:
                     self.log.warning("Experience entry not found: '%s' (available: %s)", entry_key, list(entry_map.keys()))
                     continue
@@ -147,13 +150,25 @@ class AgentBus:
                 entry_key = call.get("entry", "")
                 entry = proj_entry_map.get(entry_key)
                 if not entry:
-                    for k, v in proj_entry_map.items():
-                        title = v.get("title", "").lower()
-                        ek = entry_key.lower()
-                        if ek in k.lower() or k.lower() in ek or ek in title:
-                            entry = v
-                            entry_key = k
-                            break
+                    ek = entry_key.lower().strip()
+                    if len(ek) >= 3:
+                        best_match = None
+                        best_score = 0
+                        for k, v in proj_entry_map.items():
+                            kl = k.lower()
+                            title = v.get("title", "").lower()
+                            score = 0
+                            if ek == kl:
+                                score = 100
+                            elif ek in kl or kl in ek:
+                                score = max(len(ek), len(kl))
+                            elif ek in title:
+                                score = len(ek)
+                            if score > best_score and score >= 3:
+                                best_score = score
+                                best_match = (k, v)
+                        if best_match:
+                            entry_key, entry = best_match
                 if not entry:
                     self.log.warning("Project entry not found: '%s' (available: %s)", entry_key, list(proj_entry_map.keys()))
                     continue

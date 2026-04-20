@@ -11,7 +11,7 @@ import re
 # Pattern for experience entry titles: **Role — Company** or **Role – Company** or **Role - Company**
 # Must contain a dash variant (—, –, -) to distinguish from inline bold text
 _EXP_TITLE_RE = re.compile(
-    r'^\*\*[^*]+(?:—|–)\s*[^*]+\*\*',  # Only em-dash or en-dash (not plain hyphen which appears in inline text)
+    r'^\*\*.+?(?:—|–)\s*.+?\*\*',  # Only em-dash or en-dash (not plain hyphen which appears in inline text)
     re.MULTILINE,
 )
 
@@ -88,7 +88,7 @@ def _is_experience_title(line: str) -> bool:
     with em-dash or en-dash (not plain hyphen which appears in many inline contexts).
     """
     stripped = line.strip()
-    return bool(re.match(r'^\*\*[^*]+(?:—|–)[^*]+\*\*', stripped))
+    return bool(re.match(r'^\*\*.+?(?:—|–).+?\*\*', stripped))
 
 
 def _fix_experience(content: str) -> str:

@@ -299,7 +299,17 @@ export function parseProjectEntries(content: string): EntryData[] {
   }
 
   for (const line of lines) {
-    if (line.startsWith('**')) {
+    // Check if this is a project header line — starts with ** OR contains a markdown link OR has "| Stack" pattern
+    const isProjectHeader = line.startsWith('**') || /^\[.+\]\(.+\)/.test(line) || /^[A-Z].*\|\s*Stack/i.test(line)
+
+    // Check if this is a standalone stack line (agent put it on its own line)
+    const standaloneStack = current ? line.match(/^\*{0,2}\|\s*Stack\s*-\*{0,2}\s*(.+)$/) : null
+    if (standaloneStack && current) {
+      current.techStack = standaloneStack[1].split(',').map((s) => s.trim()).filter(Boolean)
+      continue
+    }
+
+    if (isProjectHeader) {
       flushCurrent()
 
       let name: string | undefined
@@ -314,17 +324,23 @@ export function parseProjectEntries(content: string): EntryData[] {
         techStack = stackMatch[1].split(',').map((s) => s.trim()).filter(Boolean)
       }
 
-      // Extract name and optional URL from the header part
-      // Pattern: **[Name](url)** or [Name](url) — with or without bold
-      const linkMatch = headerPart.match(/^\*{0,2}\[(.+?)\]\((.+?)\)\*{0,2}/)
+      // Extract name and optional URL — try multiple patterns
+      // Pattern 1: **[Name](url)** or [Name](url) — with or without bold
+      const linkMatch = headerPart.match(/\*{0,2}\[(.+?)\]\((.+?)\)\*{0,2}/)
       if (linkMatch) {
         name = linkMatch[1]
         url = linkMatch[2]
       } else {
-        // Pattern: **Name** possibly followed by "at Company"
+        // Pattern 2: **Name** possibly followed by "at Company"
         const plainMatch = headerPart.match(/^\*\*(.+?)\*\*/)
         if (plainMatch) {
           name = plainMatch[1]
+        } else {
+          // Pattern 3: Plain text before "| Stack" or end of line
+          const textMatch = headerPart.match(/^([^|]+?)(?:\s*\||\s*$)/)
+          if (textMatch && textMatch[1].trim()) {
+            name = textMatch[1].trim()
+          }
         }
       }
 
