@@ -55,11 +55,18 @@ def cmd_dev(args):
         sys.exit(1)
 
     backend_port = args.port
+    frontend_port = args.frontend_port
     logger.info("Starting GodCV dev mode")
     logger.info("  Backend:  http://localhost:%d (auto-reload)", backend_port)
-    logger.info("  Frontend: http://localhost:3001 (hot-reload, proxies /api -> :%d)", backend_port)
-    logger.info("  Open http://localhost:3001 in your browser")
+    logger.info("  Frontend: http://localhost:%d (hot-reload, proxies /api -> :%d)", frontend_port, backend_port)
+    logger.info("  Open http://localhost:%d in your browser", frontend_port)
     logger.info("  Press Ctrl+C to stop both")
+
+    dev_env = {
+        **os.environ,
+        "GODCV_BACKEND_PORT": str(backend_port),
+        "GODCV_FRONTEND_PORT": str(frontend_port),
+    }
 
     procs = []
     try:
@@ -67,7 +74,7 @@ def cmd_dev(args):
         backend_proc = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "backend.main:app",
              "--host", "0.0.0.0", "--port", str(backend_port), "--reload"],
-            env={**os.environ},
+            env=dev_env,
         )
         procs.append(backend_proc)
 
@@ -75,7 +82,7 @@ def cmd_dev(args):
         frontend_proc = subprocess.Popen(
             ["npm", "run", "dev"],
             cwd=str(FRONTEND_DIR),
-            env={**os.environ},
+            env=dev_env,
         )
         procs.append(frontend_proc)
 
@@ -130,7 +137,8 @@ def main():
     sub.add_parser("build", help="Build the frontend (npm install + npm run build)")
 
     dev_parser = sub.add_parser("dev", help="Start backend + frontend with hot-reload (development)")
-    dev_parser.add_argument("--port", type=int, default=9001, help="Backend port (default: 9000)")
+    dev_parser.add_argument("--port", type=int, default=9001, help="Backend port (default: 9001)")
+    dev_parser.add_argument("--frontend-port", type=int, default=3001, help="Frontend port (default: 3001)")
     dev_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
 
     run_parser = sub.add_parser("run", help="Start production server (serves built frontend)")
