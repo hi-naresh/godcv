@@ -57,8 +57,8 @@ def cmd_dev(args):
     backend_port = args.port
     logger.info("Starting GodCV dev mode")
     logger.info("  Backend:  http://localhost:%d (auto-reload)", backend_port)
-    logger.info("  Frontend: http://localhost:3000 (hot-reload, proxies /api -> :%d)", backend_port)
-    logger.info("  Open http://localhost:3000 in your browser")
+    logger.info("  Frontend: http://localhost:3001 (hot-reload, proxies /api -> :%d)", backend_port)
+    logger.info("  Open http://localhost:3001 in your browser")
     logger.info("  Press Ctrl+C to stop both")
 
     procs = []
@@ -130,11 +130,11 @@ def main():
     sub.add_parser("build", help="Build the frontend (npm install + npm run build)")
 
     dev_parser = sub.add_parser("dev", help="Start backend + frontend with hot-reload (development)")
-    dev_parser.add_argument("--port", type=int, default=9000, help="Backend port (default: 9000)")
+    dev_parser.add_argument("--port", type=int, default=9001, help="Backend port (default: 9000)")
     dev_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
 
     run_parser = sub.add_parser("run", help="Start production server (serves built frontend)")
-    run_parser.add_argument("--port", type=int, default=9000, help="Port (default: 9000)")
+    run_parser.add_argument("--port", type=int, default=9001, help="Port (default: 9000)")
     run_parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
     run_parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
 
