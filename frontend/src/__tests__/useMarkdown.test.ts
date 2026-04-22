@@ -68,3 +68,101 @@ describe('renderResume', () => {
     expect(html).toBeDefined()
   })
 })
+
+describe('skills section setext heading regression', () => {
+  /**
+   * When a skill is accepted into the Skills section the accepted markdown must
+   * NOT trigger markdown's setext-heading rule (any text line directly followed
+   * by "---" becomes an h2).  The accepted content must end with a blank line
+   * before the section separator so the last skill category stays as a plain
+   * paragraph, not a heading.
+   *
+   * Correct:   **Cloud:** AWS, Docker, Terraform.\n\n---
+   * Broken:    **Cloud:** AWS, Docker, Terraform\n---   ← becomes <h2>
+   */
+  function simulateSkillAccept(md: string, skillContent: string): string {
+    const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
+    if (!skillsMatch) return md
+    const before = skillsMatch[1]
+    const content = skillsMatch[2].trimEnd().replace(/\.$/, '')
+    const after = skillsMatch[3]
+    return md.replace(skillsMatch[0], before + content + ', ' + skillContent + '.\n' + after)
+  }
+
+  it('does not promote last skills category to h2 when followed by ---', () => {
+    const md = [
+      '# Skills',
+      '',
+      '**Backend:** Python, FastAPI.',
+      '',
+      '**Cloud:** AWS, Docker.',
+      '',
+      '---',
+      '# Experience',
+    ].join('\n')
+
+    const updated = simulateSkillAccept(md, 'Terraform')
+    const html = renderResume(updated)
+
+    // The last category must NOT be rendered as a heading
+    expect(html).not.toMatch(/<h2[^>]*>.*Cloud.*<\/h2>/i)
+    expect(html).not.toMatch(/<h1[^>]*>.*Cloud.*<\/h1>/i)
+    // It should appear inside a paragraph
+    expect(html).toMatch(/<p[^>]*>.*Cloud.*<\/p>/s)
+    // The new skill must be present
+    expect(html).toContain('Terraform')
+  })
+
+  it('does not promote last skills category to h2 when followed by # section', () => {
+    const md = [
+      '# Skills',
+      '',
+      '**Backend:** Python.',
+      '',
+      '**AI/ML:** PyTorch.',
+      '',
+      '# Experience',
+    ].join('\n')
+
+    const updated = simulateSkillAccept(md, 'TensorFlow')
+    const html = renderResume(updated)
+
+    expect(html).not.toMatch(/<h2[^>]*>.*AI\/ML.*<\/h2>/i)
+    expect(html).toContain('TensorFlow')
+  })
+
+  it('places new skill inside last category with correct comma formatting', () => {
+    const md = [
+      '# Skills',
+      '',
+      '**Backend:** Python, FastAPI.',
+      '',
+      '**Cloud:** AWS, Docker.',
+      '',
+      '---',
+    ].join('\n')
+
+    const updated = simulateSkillAccept(md, 'Kubernetes')
+    // Must end with period, no ".,"-style broken punctuation
+    expect(updated).toContain('**Cloud:** AWS, Docker, Kubernetes.')
+    expect(updated).not.toContain('.,')
+  })
+
+  it('preserves the rest of the document after accepting a skill', () => {
+    const md = [
+      '# Skills',
+      '',
+      '**Backend:** Python.',
+      '',
+      '---',
+      '# Experience',
+      '',
+      '**Engineer — Corp** *2023 – Present*',
+      '- Built systems.',
+    ].join('\n')
+
+    const updated = simulateSkillAccept(md, 'FastAPI')
+    expect(updated).toContain('# Experience')
+    expect(updated).toContain('Built systems.')
+  })
+})

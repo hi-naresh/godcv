@@ -28,6 +28,11 @@ FORMATTING:
 - Format: **Title** — Venue/Type, Year
   - One-line description of contribution
 
+OUTPUT HYGIENE — CRITICAL:
+- Return ONLY the publications section content. No notes, no commentary, no explanations, no preamble.
+- NEVER write meta-text like "Here are the publications", "I've created...", "Based on...", "Note:", "As requested..."
+- Write in a natural academic style — a recruiter should NOT be able to tell AI wrote this
+
 CANDIDATE CONTEXT (from resume):
 {section_content}
 

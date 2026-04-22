@@ -28,6 +28,13 @@ RULES:
 - Return ONLY the summary paragraph — no headers, no markdown formatting, no '# Summary'
 - Do NOT add '---' separators
 
+OUTPUT HYGIENE — CRITICAL:
+- Return ONLY the summary text. No notes, no commentary, no explanations, no preamble.
+- NEVER write meta-text like "Here is the summary", "I've crafted...", "Based on your profile...", "Note:", "As requested..."
+- NEVER use AI-detectable filler phrases: "spearheaded", "leveraged cutting-edge", "synergized", "passionate about", "driven by a desire to", "poised to", "adept at", "harnessing the power of", "in order to", "plays a pivotal role", "navigating the complexities", "aims to bridge the gap", "utilized state-of-the-art"
+- Write like the candidate wrote it themselves — natural, direct, no corporate buzzword soup
+- A recruiter should NOT be able to tell AI wrote this
+
 SPECIFIC INSTRUCTIONS: {instructions}
 
 ORIGINAL SUMMARY:

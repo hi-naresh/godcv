@@ -152,9 +152,12 @@ function acceptSuggestion(sugId: string) {
     const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
     if (skillsMatch) {
       const before = skillsMatch[1]
-      const content = skillsMatch[2].trimEnd()
+      // Strip trailing period so we can re-add it after the new skill
+      const content = skillsMatch[2].trimEnd().replace(/\.$/, '')
       const after = skillsMatch[3]
-      md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + after)
+      // Add \n before `after` to prevent setext-heading promotion:
+      // last line directly followed by \n--- would be parsed as h2
+      md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + '.\n' + after)
     }
   } else if (sug.type === 'project' && sug.section === 'Projects') {
     const projMatch = md.match(/(# Projects\n)([\s\S]*?)(\n---|\n# |\n*$)/)

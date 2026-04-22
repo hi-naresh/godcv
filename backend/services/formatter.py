@@ -15,10 +15,63 @@ _EXP_TITLE_RE = re.compile(
     re.MULTILINE,
 )
 
+# Lines that are pure AI meta-commentary (not resume content)
+_AI_META_LINE_RE = re.compile(
+    r'^\s*(?:'
+    r'(?:Here\s+(?:is|are)\s+(?:the|your|my))|'
+    r'(?:I\'ve\s+(?:aligned|rewritten|reordered|refined|updated|crafted|optimized|tailored|reorganized|restructured))|'
+    r'(?:Based\s+on\s+(?:your|the)\s+(?:description|JD|job|profile|resume|requirements))|'
+    r'(?:As\s+(?:requested|per\s+your|instructed))|'
+    r'(?:Note(?:\s*:|\s+that))|'
+    r'(?:The\s+(?:projects|experience|skills|summary|education|section)\s+(?:section\s+)?(?:has been|have been|is now|are now|now\s+reflect))|'
+    r'(?:This\s+(?:entry|section|summary)\s+now)|'
+    r'(?:Key\s+changes?\s*(?:made|:))|'
+    r'(?:Changes?\s+made\s*:)|'
+    r'(?:Let\s+me\s+know)|'
+    r'(?:Hope\s+this\s+helps)|'
+    r'(?:Feel\s+free\s+to)'
+    r')',
+    re.IGNORECASE,
+)
+
+# AI filler phrases that should be replaced with simpler alternatives within resume text
+_AI_PHRASE_REPLACEMENTS = [
+    (re.compile(r'\bspearheaded\b', re.IGNORECASE), 'led'),
+    (re.compile(r'\bleveraged cutting-edge\b', re.IGNORECASE), 'used'),
+    (re.compile(r'\bleveraged\b', re.IGNORECASE), 'used'),
+    (re.compile(r'\butilized state-of-the-art\b', re.IGNORECASE), 'used'),
+    (re.compile(r'\butilized\b', re.IGNORECASE), 'used'),
+    (re.compile(r'\bsynergized\b', re.IGNORECASE), 'combined'),
+    (re.compile(r'\bin order to\b', re.IGNORECASE), 'to'),
+    (re.compile(r'\bharnessing the power of\b', re.IGNORECASE), 'using'),
+    (re.compile(r'\bplays a pivotal role\b', re.IGNORECASE), 'is key'),
+    (re.compile(r'\bplayed a pivotal role\b', re.IGNORECASE), 'was key'),
+    (re.compile(r'\bpivotal role in\b', re.IGNORECASE), 'key role in'),
+    (re.compile(r'\bnavigating the complexities of\b', re.IGNORECASE), 'handling'),
+    (re.compile(r'\baims to bridge the gap\b', re.IGNORECASE), 'connects'),
+    (re.compile(r'\bdriven by a desire to\b', re.IGNORECASE), 'motivated to'),
+    (re.compile(r'\bpoised to\b', re.IGNORECASE), 'ready to'),
+    (re.compile(r'\badept at\b', re.IGNORECASE), 'skilled in'),
+    (re.compile(r'\bpassionate about\b', re.IGNORECASE), 'focused on'),
+    (re.compile(r'\bseamlessly\b', re.IGNORECASE), ''),
+    (re.compile(r'\bholistic\b', re.IGNORECASE), 'complete'),
+    (re.compile(r'\brobust and scalable\b', re.IGNORECASE), 'scalable'),
+    (re.compile(r'\bcutting-edge\b', re.IGNORECASE), 'modern'),
+    (re.compile(r'\bstate-of-the-art\b', re.IGNORECASE), 'modern'),
+    (re.compile(r'\bfostered\b', re.IGNORECASE), 'built'),
+    (re.compile(r'\bfacilitated\b', re.IGNORECASE), 'led'),
+    (re.compile(r'\borchestrated\b(?!\s+(?:container|deployment|service|workflow|pipeline))', re.IGNORECASE), 'coordinated'),
+    (re.compile(r'\bpioneered\b', re.IGNORECASE), 'introduced'),
+    (re.compile(r'\bchampioned\b', re.IGNORECASE), 'promoted'),
+    (re.compile(r'\bempowered\b', re.IGNORECASE), 'enabled'),
+]
+
 
 def validate_and_fix(section_name: str, content: str) -> str:
     """Validate and fix markdown formatting for a given section type."""
-    # First: fix broken bold markers (bold text split across lines)
+    # First: strip AI meta-commentary and filler phrases
+    content = strip_ai_artifacts(content)
+    # Fix broken bold markers (bold text split across lines)
     content = _fix_broken_bold(content)
     content = _normalize_whitespace(content)
 
@@ -33,6 +86,44 @@ def validate_and_fix(section_name: str, content: str) -> str:
         content = _fix_projects(content)
 
     content = _normalize_whitespace(content)
+    return content
+
+
+def strip_ai_artifacts(content: str) -> str:
+    """Remove AI meta-commentary lines and replace AI filler phrases.
+
+    Strips lines that are pure AI commentary (e.g., "Here is the rewritten entry...")
+    and replaces overused AI phrases with natural alternatives.
+    """
+    # Remove full lines that are AI meta-commentary
+    lines = content.split("\n")
+    cleaned_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip empty lines (preserve them) or lines that are resume content
+        if not stripped:
+            cleaned_lines.append(line)
+            continue
+        # Skip lines that are AI meta-commentary
+        if _AI_META_LINE_RE.match(stripped):
+            continue
+        # Skip lines that are just trailing AI notes (often after a blank line at end)
+        if stripped.startswith("---") and not any(
+            l.strip().startswith("---") for l in cleaned_lines[:3]
+        ):
+            # Only skip separators that aren't frontmatter
+            continue
+        cleaned_lines.append(line)
+
+    content = "\n".join(cleaned_lines)
+
+    # Replace AI filler phrases with natural alternatives
+    for pattern, replacement in _AI_PHRASE_REPLACEMENTS:
+        content = pattern.sub(replacement, content)
+
+    # Clean up double spaces left by empty replacements
+    content = re.sub(r'  +', ' ', content)
+
     return content
 
 

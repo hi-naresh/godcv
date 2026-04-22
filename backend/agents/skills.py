@@ -34,6 +34,11 @@ Example:
 
 **Cloud/Infra:** AWS, Docker, Kubernetes, CI/CD.
 
+OUTPUT HYGIENE — CRITICAL:
+- Return ONLY the skills section content. No notes, no commentary, no explanations, no preamble.
+- NEVER write meta-text like "Here are the reordered skills", "I've prioritized...", "Based on the JD...", "Note:", "As requested..."
+- Output should be ONLY the category lines — nothing else
+
 SKILLS TO PROMOTE (put first in their category): {', '.join(promote) if promote else 'JD-relevant skills'}
 SKILLS TO DEMOTE (put later): {', '.join(demote) if demote else 'None'}
 

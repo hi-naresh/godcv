@@ -69,6 +69,13 @@ WHAT YOU MUST DO:
 - Use JD terminology ONLY where it truthfully applies
 {tech_stack_rule}
 {generation_rule}
+OUTPUT HYGIENE — CRITICAL:
+- Return ONLY the projects section content. No notes, no commentary, no explanations, no preamble.
+- NEVER write meta-text like "Here are the projects aligned as per...", "I've reordered...", "Based on your description...", "Note:", "As requested...", "The projects now reflect..."
+- NEVER use AI-detectable filler phrases: "spearheaded", "leveraged cutting-edge", "synergized", "utilized state-of-the-art", "passionate about", "driven by a desire to", "poised to", "adept at", "harnessing the power of", "in order to", "plays a pivotal role", "navigating the complexities", "aims to bridge the gap"
+- Write like a real human wrote their own resume — direct, specific, no buzzword stuffing
+- Every bullet must sound like something the candidate would actually say about their work
+
 CRITICAL FORMATTING:
 - Each project: **[Name](url)** or **Name** on its own line
 - PRESERVE ALL markdown links [Name](url) EXACTLY — never remove URLs

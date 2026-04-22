@@ -52,6 +52,13 @@ WHAT YOU SHOULD DO:
 {stack_rule}
 - Keep 2-4 bullet points per entry
 
+OUTPUT HYGIENE — CRITICAL:
+- Return ONLY the rewritten entry. No notes, no commentary, no explanations, no preamble.
+- NEVER write meta-text like "Here is the rewritten entry", "I've aligned this with...", "Based on your description...", "Note:", "As requested...", "This entry now reflects..."
+- NEVER use AI-detectable filler phrases: "spearheaded", "leveraged cutting-edge", "synergized", "utilized state-of-the-art", "passionate about", "driven by a desire to", "poised to", "adept at", "harnessing the power of", "in order to", "plays a pivotal role", "navigating the complexities", "aims to bridge the gap"
+- Write like a real human wrote their own resume — direct, specific, no buzzword stuffing
+- Every bullet must sound like something the candidate would actually say about their work
+
 FORMATTING:
 - Title line on its own line (UNCHANGED from original)
 - Stack Used line (if applicable) on the very next line after title

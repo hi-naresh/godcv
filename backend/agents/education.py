@@ -23,6 +23,10 @@ FORMATTING:
 - Coursework line MUST follow immediately after the degree line
 - Preserve the exact formatting pattern of the original
 
+OUTPUT HYGIENE — CRITICAL:
+- Return ONLY the education section content. No notes, no commentary, no explanations, no preamble.
+- NEVER write meta-text like "Here is the refined education", "I've reordered...", "Note:", "As requested..."
+
 SPECIFIC INSTRUCTIONS: {instructions}
 
 ORIGINAL EDUCATION:
