@@ -86,10 +86,28 @@ function injectSuggestion(html: string, sug: Suggestion): string {
   const tooltip = makeTooltip()
   if (sug.section === 'Skills') {
     const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</span>`
-    const skillsRegex = /(<h1>Skills<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
-    html = html.replace(skillsRegex, (_match, h1, content, next) => {
-      return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
-    })
+    const category = sug.skill_category
+
+    if (category) {
+      // Target the specific category paragraph containing **Category:**
+      const catEscaped = escapeRegex(category)
+      const catRegex = new RegExp(
+        `(<p><strong>${catEscaped}:<\\/strong>\\s*)(.*?)(<\\/p>)`,
+        'i'
+      )
+      const catMatch = html.match(catRegex)
+      if (catMatch) {
+        html = html.replace(catRegex, `$1$2, ${sugHtml}$3`)
+      }
+    }
+
+    // Fallback: append to the last </p> in the Skills section
+    if (!category || !html.match(new RegExp(escapeRegex(category), 'i'))) {
+      const skillsRegex = /(<h1>Skills<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
+      html = html.replace(skillsRegex, (_match, h1, content, next) => {
+        return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
+      })
+    }
   } else if (sug.type === 'project' && sug.section === 'Projects') {
     // --- ADD: new project entry ---
     const projHtml = `<div class="suggestion suggestion-project" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</div>`
@@ -259,9 +277,21 @@ function fitToOnePage() {
 
 function applyMultiPageStyles() {
   showWarn.value = false
-  document.documentElement.style.setProperty('--base-font-size', settings.value.fontSize + 'px')
-  document.documentElement.style.setProperty('--line-height', String(settings.value.lineSpacing))
+  // Reset to standard sizing — multi-page should never condense
+  const stdSize = settings.value.fontSize || 11
+  const stdLh = settings.value.lineSpacing || 1.4
+  document.documentElement.style.setProperty('--base-font-size', stdSize + 'px')
+  document.documentElement.style.setProperty('--line-height', String(stdLh))
 }
+
+/** Force standard sizing before print when in multi-page mode. */
+function ensureMultiPageSizingForPrint() {
+  if (props.pageMode === 'multi') {
+    applyMultiPageStyles()
+  }
+}
+
+defineExpose({ ensureMultiPageSizingForPrint })
 
 function handleSuggestionClick(e: Event) {
   const target = e.target as HTMLElement

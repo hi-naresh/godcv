@@ -209,7 +209,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   display: none !important;
 }
 
-@page { size: A4; margin: 0; }
+@page { size: A4; margin: var(--print-page-margin, 0); }
 @media print {
   /* Hide everything that isn't the resume */
   body { background: white; margin: 0; padding: 0; }
@@ -244,7 +244,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     position: static !important; max-height: none !important;
   }
 
-  /* Single-page: exact A4 size, clip overflow, keep auto-shrunk font */
+  /* Single-page: exact A4 size, clip overflow, keep auto-shrunk font.
+     Sheet padding must match the on-screen padding that fitToOnePage() calibrated
+     against (--page-margin). @page margin stays 0 for single-page. */
   .sheet:not(.sheet-multi) {
     box-shadow: none !important; margin: 0; padding: var(--page-margin) !important;
     width: 210mm !important; height: 297mm !important;
@@ -254,11 +256,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     overflow: hidden !important; height: 100% !important;
   }
 
-  /* Multi-page: flow across pages */
+  /* Multi-page: flow across pages with standard sizing.
+     @page provides the margin on every page, so zero out the sheet padding
+     to avoid doubling the spacing on page 1. */
   .sheet-multi {
-    box-shadow: none !important; margin: 0; padding: var(--page-margin) !important;
+    box-shadow: none !important; margin: 0; padding: 0 !important;
     width: 210mm !important; height: auto !important;
     page-break-after: auto;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
   }
-  .sheet-multi .sheet-content { overflow: visible !important; height: auto !important; }
+  .sheet-multi .sheet-content {
+    overflow: visible !important; height: auto !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
 }

@@ -84,6 +84,8 @@ def validate_and_fix(section_name: str, content: str) -> str:
         content = _fix_summary(content)
     elif section_lower == "projects":
         content = _fix_projects(content)
+    elif section_lower == "education":
+        content = _fix_education(content)
 
     content = _normalize_whitespace(content)
     return content
@@ -206,9 +208,22 @@ def _fix_experience(content: str) -> str:
     # Split bullets joined on same line: "- text. - text" → separate lines
     content = re.sub(r'(\.\s*)- ', r'.\n- ', content)
 
+    # Ensure "Stack Used:" (bold or not) is on its own line after the title line
+    # Fix: title line merged with Stack Used on same line
+    content = re.sub(
+        r'(\*[^\n]+)\s*\n?(\*?\*?Stack Used:)',
+        r'\1\n\2',
+        content,
+    )
     # Normalize "Stack Used:" to bold format: "Stack Used:" → "**Stack Used:**"
     content = re.sub(
         r'^Stack Used:\s*', '**Stack Used:** ', content, flags=re.MULTILINE
+    )
+    # Also catch "**Stack Used:**" that got merged onto previous line without newline
+    content = re.sub(
+        r'([^\n])(\*\*Stack Used:\*\*)',
+        r'\1\n\2',
+        content,
     )
     return content
 
@@ -230,6 +245,26 @@ def _fix_summary(content: str) -> str:
     """Fix summary section formatting issues."""
     content = re.sub(r"^#+\s*.*\n?", "", content, flags=re.MULTILINE)
     return content.strip()
+
+
+def _fix_education(content: str) -> str:
+    """Fix education section formatting issues."""
+    # Ensure Coursework line is on its own line after the degree line
+    # Handles all variants: ***Coursework**, **Coursework:, plain Coursework:
+    # The pattern matches any non-newline char before Coursework-related markers
+    content = re.sub(
+        r'([^\n])\s*(\*{0,3}Coursework)',
+        lambda m: m.group(1) + '\n' + m.group(2) if m.group(1) != '\n' else m.group(0),
+        content,
+    )
+    # Ensure blank line between degree entries
+    # A degree entry starts with **Degree — University** or **Degree - University**
+    content = re.sub(
+        r'(\.\s*)\n(\*\*[A-Z])',
+        r'\1\n\n\2',
+        content,
+    )
+    return content
 
 
 def _fix_projects(content: str) -> str:

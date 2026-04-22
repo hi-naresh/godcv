@@ -31,9 +31,19 @@ function downloadPdf() {
   const sheet = document.querySelector('.sheet') as HTMLElement
   if (!sheet) return
   sheet.classList.add('export-mode')
+  const isMulti = store.pageMode === 'multi'
+  if (isMulti) {
+    document.documentElement.style.setProperty('--base-font-size', '11px')
+    document.documentElement.style.setProperty('--line-height', '1.4')
+    document.documentElement.style.setProperty('--print-page-margin', 'var(--page-margin)')
+  }
   window.print()
-  window.addEventListener('afterprint', () => sheet.classList.remove('export-mode'), { once: true })
-  setTimeout(() => sheet.classList.remove('export-mode'), 2000)
+  const cleanup = () => {
+    sheet.classList.remove('export-mode')
+    if (isMulti) document.documentElement.style.setProperty('--print-page-margin', '0')
+  }
+  window.addEventListener('afterprint', cleanup, { once: true })
+  setTimeout(cleanup, 2000)
 }
 
 function formatDate(d: string) {

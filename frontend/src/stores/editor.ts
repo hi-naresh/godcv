@@ -41,6 +41,7 @@ export interface Suggestion {
   type: 'skill' | 'bullet' | 'project' | 'remove' | 'replace'
   content: string
   old_content?: string
+  skill_category?: string
   context: string
 }
 

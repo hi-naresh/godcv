@@ -69,20 +69,40 @@ def cmd_dev(args):
     }
 
     procs = []
+
+    def _kill_all():
+        """Kill all child process trees via process group."""
+        for p in procs:
+            try:
+                # Kill the entire process group (parent + all children)
+                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+            except (OSError, ProcessLookupError):
+                pass
+        for p in procs:
+            try:
+                p.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+                except (OSError, ProcessLookupError):
+                    p.kill()
+
     try:
-        # Start backend
+        # Start backend in its own process group so we can kill the whole tree
         backend_proc = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "backend.main:app",
              "--host", "0.0.0.0", "--port", str(backend_port), "--reload"],
             env=dev_env,
+            preexec_fn=os.setsid,
         )
         procs.append(backend_proc)
 
-        # Start frontend
+        # Start frontend in its own process group
         frontend_proc = subprocess.Popen(
             ["npm", "run", "dev"],
             cwd=str(FRONTEND_DIR),
             env=dev_env,
+            preexec_fn=os.setsid,
         )
         procs.append(frontend_proc)
 
@@ -98,16 +118,7 @@ def cmd_dev(args):
 
     except KeyboardInterrupt:
         logger.info("Shutting down...")
-        for p in procs:
-            try:
-                p.send_signal(signal.SIGTERM)
-            except OSError:
-                pass
-        for p in procs:
-            try:
-                p.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                p.kill()
+        _kill_all()
         logger.info("Stopped.")
 
 

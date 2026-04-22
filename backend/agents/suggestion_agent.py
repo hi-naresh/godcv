@@ -34,6 +34,7 @@ ADD content:
 1. **Skills** (type: "skill") — Skills the candidate clearly knows from their coursework, tech stack, or projects but didn't explicitly list.
    - section: "Skills"
    - content: comma-separated skill names
+   - skill_category: the EXACT name of the existing skill category these skills belong to (e.g., "Backend", "Cloud/Infra", "AI/ML"). Match the category name exactly as it appears in the resume. If no category fits, use the most relevant existing one.
 
 2. **Bullet points** (type: "bullet") — New bullet points for existing experience/project entries that highlight relevant work.
    - section: "experience:CompanyKey" or "projects:ProjectKey"
@@ -88,6 +89,7 @@ Respond with a JSON array (may be empty if no actionable gaps):
     "type": "<skill|bullet|project|remove|replace>",
     "content": "<text to add, or exact text to remove, or replacement text>",
     "old_content": "<ONLY for type=replace: the exact original text being replaced>",
+    "skill_category": "<ONLY for type=skill: exact category name from resume, e.g. Backend, Cloud/Infra>",
     "context": "<what this addresses, 1 short sentence>"
   }}
 ]"""

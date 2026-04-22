@@ -146,6 +146,69 @@ class TestProjectsFormatting:
         assert "- Built real-time pipeline." in result
 
 
+class TestEducationFormatting:
+    def test_coursework_on_own_line(self):
+        """Coursework merged onto degree line should be split."""
+        broken = (
+            "**M.Sc. in Computer Science - University of London** *Jan 2023 – Jan 2024*"
+            "***Coursework**:* Distributed Systems; Machine Learning."
+        )
+        result = validate_and_fix("education", broken)
+        assert "\n***Coursework" in result or "\nCoursework" in result
+
+    def test_preserves_correct_education_format(self):
+        correct = (
+            "**M.Sc. in Computer Science - University of London** *Jan 2023 – Jan 2024*\n"
+            "***Coursework**:* Distributed Systems; Machine Learning."
+        )
+        result = validate_and_fix("education", correct)
+        assert "***Coursework**:*" in result
+
+    def test_blank_line_between_degrees(self):
+        broken = (
+            "**M.Sc. in CS - University A** *2023 – 2024*\n"
+            "***Coursework**:* ML; AI.\n"
+            "**B.Sc. in CS - University B** *2019 – 2023*\n"
+            "***Coursework**:* Data Structures; Algorithms."
+        )
+        result = validate_and_fix("education", broken)
+        assert "\n\n**B.Sc." in result
+
+
+class TestExperienceStackUsed:
+    def test_stack_used_on_own_line(self):
+        """Stack Used merged onto title line should be split."""
+        broken = (
+            "**Senior Engineer — Acme Corp** *Jan 2023 – Present*"
+            "**Stack Used:** Python, FastAPI\n"
+            "- Built pipelines."
+        )
+        result = validate_and_fix("experience", broken)
+        assert "\n**Stack Used:**" in result
+
+    def test_unbolded_stack_used_on_own_line(self):
+        broken = (
+            "**Senior Engineer — Acme Corp** *Jan 2023 – Present*"
+            "Stack Used: Python, FastAPI\n"
+            "- Built pipelines."
+        )
+        result = validate_and_fix("experience", broken)
+        assert "\n**Stack Used:**" in result
+
+    def test_preserves_correct_stack_format(self):
+        correct = (
+            "**Senior Engineer — Acme Corp** *Jan 2023 – Present*\n"
+            "**Stack Used:** Python, FastAPI\n"
+            "- Built pipelines."
+        )
+        result = validate_and_fix("experience", correct)
+        assert "**Stack Used:** Python, FastAPI" in result
+        # Should still be on its own line
+        lines = result.split("\n")
+        stack_line = [l for l in lines if "Stack Used" in l]
+        assert len(stack_line) == 1
+
+
 class TestGenericFormatting:
     def test_unknown_section_still_normalizes(self):
         content = "Some text.   \n\n\n\nMore text."

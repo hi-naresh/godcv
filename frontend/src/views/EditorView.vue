@@ -101,15 +101,28 @@ function exportPdf() {
   // Strip suggestion highlights for clean print
   sheet.classList.add('export-mode')
 
+  // For multi-page: reset to standard sizing and enable @page margin
+  // so every page gets consistent spacing
+  const isMulti = store.pageMode === 'multi'
+  if (isMulti) {
+    document.documentElement.style.setProperty('--base-font-size', '11px')
+    document.documentElement.style.setProperty('--line-height', '1.4')
+    document.documentElement.style.setProperty('--print-page-margin', 'var(--page-margin)')
+  }
+
   // Use native print for vector-quality PDF
   window.print()
 
   // Restore after print dialog closes
-  window.addEventListener('afterprint', () => {
+  const cleanup = () => {
     sheet.classList.remove('export-mode')
-  }, { once: true })
+    if (isMulti) {
+      document.documentElement.style.setProperty('--print-page-margin', '0')
+    }
+  }
+  window.addEventListener('afterprint', cleanup, { once: true })
   // Fallback: remove after a short delay in case afterprint doesn't fire
-  setTimeout(() => sheet.classList.remove('export-mode'), 2000)
+  setTimeout(cleanup, 2000)
 }
 
 async function saveCurrent() {
@@ -149,15 +162,36 @@ function acceptSuggestion(sugId: string) {
   } else if (sug.type === 'replace' && sug.old_content) {
     md = md.replace(sug.old_content.trim(), sug.content.trim())
   } else if (sug.section === 'Skills' && sug.type === 'skill') {
-    const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
-    if (skillsMatch) {
-      const before = skillsMatch[1]
-      // Strip trailing period so we can re-add it after the new skill
-      const content = skillsMatch[2].trimEnd().replace(/\.$/, '')
-      const after = skillsMatch[3]
-      // Add \n before `after` to prevent setext-heading promotion:
-      // last line directly followed by \n--- would be parsed as h2
-      md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + '.\n' + after)
+    const category = sug.skill_category
+    let inserted = false
+
+    if (category) {
+      // Target the specific category line: **Category:** skill1, skill2.
+      const catEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const catRegex = new RegExp(
+        `(\\*\\*${catEscaped}:\\*\\*\\s*)([^\\n]*?)(\\.?)\\s*$`,
+        'mi'
+      )
+      const catMatch = md.match(catRegex)
+      if (catMatch) {
+        const fullMatch = catMatch[0]
+        const prefix = catMatch[1]    // **Category:**
+        const skills = catMatch[2]    // existing skills
+        const replacement = prefix + skills + ', ' + sug.content + '.'
+        md = md.replace(fullMatch, replacement)
+        inserted = true
+      }
+    }
+
+    // Fallback: append to the end of the skills section (last category)
+    if (!inserted) {
+      const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
+      if (skillsMatch) {
+        const before = skillsMatch[1]
+        const content = skillsMatch[2].trimEnd().replace(/\.$/, '')
+        const after = skillsMatch[3]
+        md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + '.\n' + after)
+      }
     }
   } else if (sug.type === 'project' && sug.section === 'Projects') {
     const projMatch = md.match(/(# Projects\n)([\s\S]*?)(\n---|\n# |\n*$)/)
