@@ -34,6 +34,7 @@ async def _init_tables(db: aiosqlite.Connection):
             parsed_sections TEXT,
             gemini_api_key TEXT DEFAULT '',
             page_mode TEXT DEFAULT 'single',
+            fabrication_mode INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -81,4 +82,7 @@ async def _init_tables(db: aiosqlite.Connection):
     columns = [row[1] for row in await cursor.fetchall()]
     if "page_mode" not in columns:
         await db.execute("ALTER TABLE profiles ADD COLUMN page_mode TEXT DEFAULT 'single'")
+        await db.commit()
+    if "fabrication_mode" not in columns:
+        await db.execute("ALTER TABLE profiles ADD COLUMN fabrication_mode INTEGER DEFAULT 0")
         await db.commit()
