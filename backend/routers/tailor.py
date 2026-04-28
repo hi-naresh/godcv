@@ -66,7 +66,12 @@ async def tailor_resume(request: TailorRequest):
                     entry_keys[sec_name] = [{"key": e["key"], "title": e["title"]} for e in sec_val["_entries"]]
 
             page_mode = request.page_mode or (profile.get("page_mode", "single") if profile else "single")
-            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level, page_mode, entry_keys)
+            fabrication_mode = (
+                request.fabrication_mode
+                if request.fabrication_mode is not None
+                else bool(profile.get("fabrication_mode", 0)) if profile else False
+            )
+            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level, page_mode, entry_keys, fabrication_mode=fabrication_mode)
             tool_calls = plan.get("tool_calls", [])
             sections_unchanged = plan.get("sections_unchanged", [])
 
@@ -99,6 +104,7 @@ async def tailor_resume(request: TailorRequest):
             for call in tool_calls:
                 call["role_type"] = role_type
                 call["candidate_facts"] = candidate_facts
+                call["fabrication_mode"] = fabrication_mode
 
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
             for call in active_calls:
@@ -231,6 +237,11 @@ async def execute_tailoring(request: ExecuteRequest):
             gemini = GeminiClient(api_key)
             tool_calls = plan.get("tool_calls", [])
             sections_unchanged = plan.get("sections_unchanged", [])
+            fabrication_mode = (
+                request.fabrication_mode
+                if request.fabrication_mode is not None
+                else bool(profile.get("fabrication_mode", 0)) if profile else False
+            )
 
             # Phase 1: Parse resume
             yield _sse_event("status", {"phase": "parsing", "message": "Parsing resume..."})
@@ -240,6 +251,7 @@ async def execute_tailoring(request: ExecuteRequest):
             role_type = plan.get("analysis", {}).get("role_type", "")
             for call in tool_calls:
                 call["role_type"] = role_type
+                call["fabrication_mode"] = fabrication_mode
 
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
             for call in active_calls:

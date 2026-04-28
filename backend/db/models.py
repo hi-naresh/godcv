@@ -46,6 +46,7 @@ class TailorRequest(BaseModel):
     seniority_level: str | None = None
     page_mode: str = "single"
     analyze_only: bool = False
+    fabrication_mode: bool | None = None
 
 
 class ExecuteRequest(BaseModel):
@@ -54,6 +55,7 @@ class ExecuteRequest(BaseModel):
     gemini_api_key: str | None = None
     seniority_level: str | None = None
     plan: dict
+    fabrication_mode: bool | None = None
 
 
 class TailoringHistoryResponse(BaseModel):
