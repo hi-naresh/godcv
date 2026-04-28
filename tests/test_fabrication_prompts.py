@@ -104,3 +104,30 @@ async def test_education_fabrication_swaps_block():
     )
     assert "FABRICATION ALLOWED" in fake.prompt
     assert "Do NOT fabricate courses" not in fake.prompt
+
+
+from backend.agents.experience import ExperienceAgent
+
+
+@pytest.mark.asyncio
+async def test_experience_truthful_by_default():
+    fake = FakeGemini()
+    agent = ExperienceAgent(fake)
+    await agent.run(
+        section_content="orig", instructions="instr", job_description="jd",
+        extra={"role_type": "backend"},
+    )
+    assert "Fabricate achievements, metrics, or technologies you didn't use" in fake.prompt
+    assert "FABRICATION ALLOWED" not in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_experience_fabrication_swaps_block():
+    fake = FakeGemini()
+    agent = ExperienceAgent(fake)
+    await agent.run(
+        section_content="orig", instructions="instr", job_description="jd",
+        extra={"role_type": "backend", "fabrication_mode": True},
+    )
+    assert "FABRICATION ALLOWED" in fake.prompt
+    assert "Fabricate achievements, metrics, or technologies you didn't use" not in fake.prompt

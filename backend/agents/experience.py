@@ -1,4 +1,5 @@
 from backend.services.gemini import GeminiClient
+from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
 
 
 class ExperienceAgent:
@@ -27,6 +28,25 @@ class ExperienceAgent:
 - Led cross-functional initiative reducing customer churn by 15% through data-driven retention strategies.
 - Designed operational workflow that cut processing time by 40%, saving $200K annually."""
 
+        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        if fabrication_mode:
+            cannot_do_block = (
+                FABRICATION_ALLOWED_BLOCK +
+                "Per-entry constraints (still apply):\n"
+                "- Do NOT change the job title, company name, or dates (first bold line stays UNCHANGED)\n"
+                "- You may invent at most 1 plausible bullet per entry\n"
+                "- You may upgrade existing metrics to plausible higher values\n"
+                "- Stack Used line may include adjacent technologies the candidate plausibly used"
+            )
+        else:
+            cannot_do_block = (
+                "WHAT YOU CANNOT DO:\n"
+                "- Change the job title, company name, or dates (first bold line stays UNCHANGED)\n"
+                "- Fabricate achievements, metrics, or technologies you didn't use\n"
+                "- Add technologies to Stack Used that weren't part of this specific role\n"
+                "- Remove quantified achievements (numbers, percentages) — they are real"
+            )
+
         prompt = f"""You are a resume experience bullet point writer. Rewrite this single job entry to be more compelling for the target role.
 
 CANDIDATE FACTS:
@@ -38,11 +58,7 @@ YOUR GOAL: Make this experience entry resonate with the JD by:
 3. Framing achievements in terms the hiring manager cares about
 4. Keeping the core truth — you worked at this company doing this work — but presenting it through the lens of what the JD values
 
-WHAT YOU CANNOT DO:
-- Change the job title, company name, or dates (first bold line stays UNCHANGED)
-- Fabricate achievements, metrics, or technologies you didn't use
-- Add technologies to Stack Used that weren't part of this specific role
-- Remove quantified achievements (numbers, percentages) — they are real
+{cannot_do_block}
 
 WHAT YOU SHOULD DO:
 - Reword bullets to weave in JD keywords where they genuinely apply
