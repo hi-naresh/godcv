@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import json
 import re
@@ -28,6 +29,29 @@ _rate_limits: dict = {}
 import time
 _minute_log: list[dict] = []  # [{ts, prompt, completion}]
 _day_log: list[float] = []    # [timestamp]
+
+
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+MAX_ATTEMPTS = 3
+MAX_SLEEP_PER_ATTEMPT = 60.0
+MAX_TOTAL_WAIT = 90.0
+
+
+def _parse_retry_delay(error_data: dict, message: str) -> float:
+    """Extract retry delay (seconds) from a Gemini 429 error, or fall back."""
+    details = error_data.get("error", {}).get("details", [])
+    for d in details:
+        if d.get("@type", "").endswith("RetryInfo"):
+            raw = d.get("retryDelay", "")
+            if raw.endswith("s"):
+                try:
+                    return float(raw[:-1])
+                except ValueError:
+                    pass
+    match = re.search(r"retry in (\d+(?:\.\d+)?)s", message, re.IGNORECASE)
+    if match:
+        return float(match.group(1))
+    return 30.0
 
 
 def _prune_logs():
@@ -79,28 +103,58 @@ class GeminiClient:
             "safetySettings": GEMINI_SAFETY_SETTINGS,
         }
 
-        try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
-                response = await client.post(
-                    f"{self.endpoint}?key={self.api_key}",
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                )
-        except httpx.ConnectError:
-            raise RuntimeError("Cannot connect to Gemini API. Check your network connection.")
-        except httpx.TimeoutException:
-            raise RuntimeError("Gemini API request timed out (90s). Try again or use a shorter resume/JD.")
+        total_waited = 0.0
+        response = None
+        for attempt in range(MAX_ATTEMPTS):
+            try:
+                async with httpx.AsyncClient(timeout=90.0) as client:
+                    response = await client.post(
+                        f"{self.endpoint}?key={self.api_key}",
+                        json=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+            except httpx.ConnectError:
+                raise RuntimeError("Cannot connect to Gemini API. Check your network connection.")
+            except httpx.TimeoutException:
+                raise RuntimeError("Gemini API request timed out (90s). Try again or use a shorter resume/JD.")
 
-        _usage["total_requests"] += 1
-        _usage["model"] = self.model
+            _usage["total_requests"] += 1
+            _usage["model"] = self.model
 
-        # Track rate limits from response headers
-        headers = response.headers
-        for h in ["x-ratelimit-limit-requests", "x-ratelimit-remaining-requests",
-                   "x-ratelimit-limit-tokens", "x-ratelimit-remaining-tokens",
-                   "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"]:
-            if h in headers:
-                _rate_limits[h.replace("x-ratelimit-", "")] = headers[h]
+            # Track rate limits from response headers
+            headers = response.headers
+            for h in ["x-ratelimit-limit-requests", "x-ratelimit-remaining-requests",
+                       "x-ratelimit-limit-tokens", "x-ratelimit-remaining-tokens",
+                       "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"]:
+                if h in headers:
+                    _rate_limits[h.replace("x-ratelimit-", "")] = headers[h]
+
+            if response.status_code == 200:
+                break  # success — fall through to parsing logic
+
+            if response.status_code not in RETRYABLE_STATUSES or attempt == MAX_ATTEMPTS - 1:
+                break  # non-retryable or last attempt — let error handling below raise
+
+            # Compute delay for this retry
+            try:
+                error_data = response.json()
+                msg = error_data.get("error", {}).get("message", "")
+            except Exception:
+                error_data, msg = {}, ""
+
+            if response.status_code == 429:
+                delay = min(_parse_retry_delay(error_data, msg), MAX_SLEEP_PER_ATTEMPT)
+                reason = "rate-limited (429)"
+            else:
+                delay = min(2.0 * (2 ** attempt), MAX_SLEEP_PER_ATTEMPT)  # 2, 4, 8
+                reason = f"server error ({response.status_code})"
+
+            if total_waited + delay > MAX_TOTAL_WAIT:
+                break  # would exceed total wait cap — give up
+
+            logger.info("Gemini %s — retrying in %.1fs (attempt %d/%d)", reason, delay, attempt + 1, MAX_ATTEMPTS)
+            await asyncio.sleep(delay)
+            total_waited += delay
 
         if response.status_code != 200:
             _usage["errors"] += 1
