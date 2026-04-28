@@ -93,8 +93,8 @@ STRATEGY — Think like the hiring manager reading these projects:
 
 WHAT YOU MUST DO:
 - Reorder projects: most JD-relevant first
-- Expand relevant projects (3-5 bullets for top projects)
-- Condense less relevant projects (1-2 bullets)
+- Default to 1-2 bullets per project; use 3 bullets ONLY if a third bullet adds strongly-justified JD-relevant impact
+- EVERY bullet MUST include a quantified result (numbers, percentages, $ amounts, time saved, scale, throughput)
 - Use JD terminology ONLY where it truthfully applies
 {tech_stack_rule}
 {generation_rule}

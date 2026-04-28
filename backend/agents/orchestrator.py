@@ -123,7 +123,8 @@ ENTRY SELECTION RULES:
 - Prefer entries most relevant to the job description
 - When excluding, drop the least relevant entries first
 {insights_context}{seniority_context}
-PAGE MODE: {"MULTI-PAGE — Include ALL entries. No need to exclude entries for space. Agents can add richer content." if page_mode == "multi" else "SINGLE-PAGE — Select entries to fit one page. Typically 2-3 experience entries and 2-3 projects."}
+PAGE MODE: {"MULTI-PAGE — Include ALL experience entries. No exclusions for space. Agents can add richer content." if page_mode == "multi" else "SINGLE-PAGE — Select experience entries to fit one page (typically 2-3)."}
+PROJECTS COUNT: Always select exactly 3-4 projects total — rank by JD relevance, "exclude" the rest. If generate_projects is set on a tool_call, those generated entries count toward this 3-4 total (so existing projects must be reduced accordingly).
 {self._entry_keys_context(entry_keys)}
 RESUME:
 {resume_markdown}

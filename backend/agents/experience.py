@@ -66,7 +66,8 @@ WHAT YOU SHOULD DO:
 - If a bullet describes work that maps to a JD requirement, make that connection explicit
 - Use strong action verbs that match the JD's language (e.g., if JD says "orchestrate", use "orchestrated")
 {stack_rule}
-- Keep 2-4 bullet points per entry
+- Default to 1-2 bullets per entry; use 3 bullets ONLY if a third bullet adds strongly-justified JD-relevant impact
+- EVERY bullet MUST include a quantified result (numbers, percentages, $ amounts, time saved, scale, throughput)
 
 OUTPUT HYGIENE — CRITICAL:
 - Return ONLY the rewritten entry. No notes, no commentary, no explanations, no preamble.
