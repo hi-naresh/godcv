@@ -131,3 +131,42 @@ async def test_experience_fabrication_swaps_block():
     )
     assert "FABRICATION ALLOWED" in fake.prompt
     assert "Fabricate achievements, metrics, or technologies you didn't use" not in fake.prompt
+
+
+from backend.agents.projects import ProjectsAgent
+
+
+@pytest.mark.asyncio
+async def test_projects_truthful_by_default():
+    fake = FakeGemini()
+    agent = ProjectsAgent(fake)
+    await agent.run(
+        section_content="orig", instructions="instr", job_description="jd",
+        extra={"role_type": "backend"},
+    )
+    assert "DON'T FABRICATE" in fake.prompt
+    assert "FABRICATION ALLOWED" not in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_projects_fabrication_swaps_block():
+    fake = FakeGemini()
+    agent = ProjectsAgent(fake)
+    await agent.run(
+        section_content="orig", instructions="instr", job_description="jd",
+        extra={"role_type": "backend", "fabrication_mode": True},
+    )
+    assert "FABRICATION ALLOWED" in fake.prompt
+    assert "DON'T FABRICATE" not in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_projects_generate_block_softens_when_fabrication_on():
+    fake = FakeGemini()
+    agent = ProjectsAgent(fake)
+    await agent.run(
+        section_content="orig", instructions="instr", job_description="jd",
+        extra={"role_type": "backend", "fabrication_mode": True, "generate_projects": True, "candidate_skills": "Python"},
+    )
+    # Strict generation rule should be removed when fabrication_mode is on
+    assert "Must use ONLY technologies the candidate already knows" not in fake.prompt

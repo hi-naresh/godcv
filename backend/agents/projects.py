@@ -1,3 +1,4 @@
+from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
 from backend.services.gemini import GeminiClient
 
 
@@ -12,6 +13,7 @@ class ProjectsAgent:
         candidate_facts = extra.get("candidate_facts", "") if extra else ""
         generate_new = extra.get("generate_projects", False) if extra else False
         candidate_skills = extra.get("candidate_skills", "") if extra else ""
+        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
         is_technical = role_type in ("ai_ml", "backend", "data_eng", "frontend", "devops", "fullstack", "")
 
         if is_technical:
@@ -22,9 +24,38 @@ class ProjectsAgent:
             tech_stack_rule = """- This is NOT a technical/CS role — do NOT add "| Stack -" lines
 - Focus on methodologies, outcomes, and domain-relevant details"""
 
+        if fabrication_mode:
+            dont_fabricate_block = (
+                FABRICATION_ALLOWED_BLOCK +
+                "Per-project rules:\n"
+                "- You may upgrade existing project metrics to plausible higher values\n"
+                "- You may add capabilities that are plausibly adjacent to what the project actually did\n"
+                "- Do NOT change project NAMES or URLs — those remain real"
+            )
+        else:
+            dont_fabricate_block = (
+                "4. DON'T FABRICATE: Never add capabilities, metrics, or technologies that weren't part of the project.\n"
+                "   Reframing is fine (\"built data pipeline\" → \"engineered scalable research pipeline processing X records\").\n"
+                "   Inventing is not (\"built chatbot\" → \"conducted cutting-edge ML research\" — this is a lie)."
+            )
+
         generation_rule = ""
         if generate_new:
-            generation_rule = f"""
+            if fabrication_mode:
+                generation_rule = f"""
+GENERATE NEW PROJECTS:
+Generate 1-2 NEW project entries demonstrating JD requirements existing projects don't cover.
+Rules:
+- Adjacent technologies the candidate hasn't directly used but could plausibly learn are acceptable
+- Must be realistic — something they would actually build
+- No fake URLs — use "at University" or "Personal" after the name
+- Place after real projects
+
+CANDIDATE'S KNOWN SKILLS:
+{candidate_skills}
+"""
+            else:
+                generation_rule = f"""
 GENERATE NEW PROJECTS:
 Generate 1-2 NEW project entries based on the candidate's real skills and coursework that fill JD gaps.
 Rules:
@@ -58,9 +89,7 @@ STRATEGY — Think like the hiring manager reading these projects:
    - If JD wants "scalable pipelines" and the project has data processing → highlight scale/throughput
    - Use the JD's exact terminology where it truthfully applies
 
-4. DON'T FABRICATE: Never add capabilities, metrics, or technologies that weren't part of the project.
-   Reframing is fine ("built data pipeline" → "engineered scalable research pipeline processing X records").
-   Inventing is not ("built chatbot" → "conducted cutting-edge ML research" — this is a lie).
+{dont_fabricate_block}
 
 WHAT YOU MUST DO:
 - Reorder projects: most JD-relevant first
