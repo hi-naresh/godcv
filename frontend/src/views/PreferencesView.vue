@@ -13,6 +13,7 @@ const { show: showToast } = useToast()
 const resetting = ref(false)
 
 const apiKey = ref('')
+const fabricationMode = ref(false)
 const saving = ref(false)
 const msg = ref('')
 
@@ -49,6 +50,7 @@ onMounted(async () => {
     store.profile = p
     if (p.page_mode) store.pageMode = p.page_mode
     apiKey.value = p.gemini_api_key || ''
+    fabricationMode.value = !!p.fabrication_mode
   }
   await Promise.all([loadUsage(), loadModels()])
 })
@@ -85,6 +87,10 @@ async function selectModel(modelId: string) {
 
 watch(() => store.pageMode, (val) => {
   if (store.profile) updateProfile({ page_mode: val })
+})
+
+watch(fabricationMode, (val) => {
+  if (store.profile) updateProfile({ fabrication_mode: val })
 })
 
 async function saveApiKey() {
@@ -248,6 +254,16 @@ function barColor(p: number): string {
       <button v-if="usage" class="refresh-btn" @click="loadUsage">Refresh</button>
     </div>
 
+    <div class="pref-card">
+      <h3>Fabrication Mode</h3>
+      <p class="pref-desc">When ON, the AI may invent plausible metrics, projects, bullets, coursework, and skills tailored to the job description. Off by default.</p>
+      <label class="fab-toggle">
+        <input type="checkbox" v-model="fabricationMode" />
+        <span class="fab-slider"></span>
+        <span class="fab-label">{{ fabricationMode ? 'ON' : 'OFF' }}</span>
+      </label>
+    </div>
+
     <div class="pref-card danger-card">
       <h3>Reset All Data</h3>
       <p class="pref-desc">Deletes all saved CVs, roles, history, and profile. Resets resume to the sample template. LLM usage stats are preserved.</p>
@@ -338,6 +354,13 @@ h2 { margin-bottom: 16px; }
   padding: 5px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
 }
 .refresh-btn:hover { background: #f5f5f5; }
+
+.fab-toggle {
+  display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+  font-size: 0.85rem; font-weight: 600; color: #444;
+}
+.fab-toggle input { width: 18px; height: 18px; cursor: pointer; }
+.fab-label { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #888; }
 
 /* Danger zone */
 .danger-card { border-color: #f5c6cb; grid-column: 1 / -1; }
