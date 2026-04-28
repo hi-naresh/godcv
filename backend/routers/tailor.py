@@ -249,8 +249,11 @@ async def execute_tailoring(request: ExecuteRequest):
 
             # Phase 2: Dispatch agents
             role_type = plan.get("analysis", {}).get("role_type", "")
+            from backend.services.candidate_profile import build_candidate_profile
+            candidate_facts = build_candidate_profile(resume_md)
             for call in tool_calls:
                 call["role_type"] = role_type
+                call["candidate_facts"] = candidate_facts
                 call["fabrication_mode"] = fabrication_mode
 
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
