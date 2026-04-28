@@ -60,6 +60,7 @@ export interface Profile {
   master_resume: string
   gemini_api_key: string
   page_mode: 'single' | 'multi'
+  fabrication_mode: boolean
 }
 
 export interface JobState {
