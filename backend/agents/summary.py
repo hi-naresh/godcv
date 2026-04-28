@@ -1,4 +1,5 @@
 from backend.services.gemini import GeminiClient
+from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
 
 
 class SummaryAgent:
@@ -8,6 +9,12 @@ class SummaryAgent:
     async def run(self, section_content: str, instructions: str,
                   job_description: str, extra: dict = None) -> str:
         candidate_facts = extra.get("candidate_facts", "") if extra else ""
+        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        truthfulness_rule = (
+            FABRICATION_ALLOWED_BLOCK
+            if fabrication_mode
+            else "- Maintain truthfulness — only mention skills and experience the candidate actually has"
+        )
 
         prompt = f"""You are a resume summary writer. Craft a compelling 2-3 sentence summary that positions this candidate as a strong fit for the target role.
 
@@ -22,7 +29,7 @@ YOUR GOAL: The summary is the first thing a recruiter reads. It should:
 
 RULES:
 - 2-3 sentences maximum
-- Maintain truthfulness — only mention skills and experience the candidate actually has
+{truthfulness_rule}
 - Use keywords from the JD naturally, not stuffed
 - Keep a confident, professional tone
 - Return ONLY the summary paragraph — no headers, no markdown formatting, no '# Summary'

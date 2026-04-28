@@ -32,3 +32,27 @@ async def test_orchestrator_fabrication_swaps_block():
     await agent.analyze(resume_markdown="# Resume", job_description="JD", fabrication_mode=True)
     assert "FABRICATION ALLOWED" in fake.prompt
     assert "DO NOT fabricate professional work experience" not in fake.prompt
+
+
+from backend.agents.summary import SummaryAgent
+
+
+@pytest.mark.asyncio
+async def test_summary_truthful_by_default():
+    fake = FakeGemini()
+    agent = SummaryAgent(fake)
+    await agent.run(section_content="orig", instructions="instr", job_description="jd", extra={})
+    assert "only mention skills and experience the candidate actually has" in fake.prompt
+    assert "FABRICATION ALLOWED" not in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_summary_fabrication_swaps_block():
+    fake = FakeGemini()
+    agent = SummaryAgent(fake)
+    await agent.run(
+        section_content="orig", instructions="instr", job_description="jd",
+        extra={"fabrication_mode": True},
+    )
+    assert "FABRICATION ALLOWED" in fake.prompt
+    assert "only mention skills and experience the candidate actually has" not in fake.prompt
