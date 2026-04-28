@@ -29,6 +29,27 @@ class ExperienceAgent:
 - Designed operational workflow that cut processing time by 40%, saving $200K annually."""
 
         fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        max_bullets = extra.get("max_bullets_per_entry", 3) if extra else 3
+        require_quant = extra.get("require_quantified_bullets", True) if extra else True
+
+        if max_bullets <= 1:
+            bullet_count_rule = "- Use exactly 1 bullet per entry — make it count"
+        elif max_bullets == 2:
+            bullet_count_rule = "- Use 1-2 bullets per entry"
+        else:
+            bullet_count_rule = (
+                f"- Default to 1-2 bullets per entry; use up to {max_bullets} bullets ONLY if each "
+                f"additional bullet adds strongly-justified JD-relevant impact"
+            )
+
+        if require_quant:
+            quantified_rule = (
+                "- EVERY bullet MUST include a quantified result (numbers, percentages, $ amounts, "
+                "time saved, scale, throughput)"
+            )
+        else:
+            quantified_rule = "- Prefer quantified results when available, but qualitative outcomes are acceptable"
+
         if fabrication_mode:
             cannot_do_block = (
                 FABRICATION_ALLOWED_BLOCK +
@@ -66,8 +87,8 @@ WHAT YOU SHOULD DO:
 - If a bullet describes work that maps to a JD requirement, make that connection explicit
 - Use strong action verbs that match the JD's language (e.g., if JD says "orchestrate", use "orchestrated")
 {stack_rule}
-- Default to 1-2 bullets per entry; use 3 bullets ONLY if a third bullet adds strongly-justified JD-relevant impact
-- EVERY bullet MUST include a quantified result (numbers, percentages, $ amounts, time saved, scale, throughput)
+{bullet_count_rule}
+{quantified_rule}
 
 OUTPUT HYGIENE — CRITICAL:
 - Return ONLY the rewritten entry. No notes, no commentary, no explanations, no preamble.

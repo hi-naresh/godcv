@@ -15,6 +15,7 @@ class OrchestratorAgent:
         page_mode: str = "single",
         entry_keys: dict | None = None,
         fabrication_mode: bool = False,
+        max_projects: int = 4,
     ) -> dict:
         """Analyze job description against resume and produce a tool_calls plan."""
         insights_context = ""
@@ -57,6 +58,13 @@ class OrchestratorAgent:
                 "TRUTHFULNESS:\n"
                 "DO NOT fabricate professional work experience or company names.\n"
             )
+
+        projects_count_rule = (
+            f"PROJECTS COUNT: Always select up to {max_projects} projects total — rank by JD relevance, "
+            f"\"exclude\" the rest. Aim for {max_projects} unless fewer projects strongly demonstrate fit. "
+            f"If generate_projects is set on a tool_call, those generated entries count toward this {max_projects} total "
+            f"(so existing projects must be reduced accordingly)."
+        )
 
         if fabrication_mode:
             generate_projects_rule = (
@@ -124,7 +132,7 @@ ENTRY SELECTION RULES:
 - When excluding, drop the least relevant entries first
 {insights_context}{seniority_context}
 PAGE MODE: {"MULTI-PAGE — Include ALL experience entries. No exclusions for space. Agents can add richer content." if page_mode == "multi" else "SINGLE-PAGE — Select experience entries to fit one page (typically 2-3)."}
-PROJECTS COUNT: Always select exactly 3-4 projects total — rank by JD relevance, "exclude" the rest. If generate_projects is set on a tool_call, those generated entries count toward this 3-4 total (so existing projects must be reduced accordingly).
+{projects_count_rule}
 {self._entry_keys_context(entry_keys)}
 RESUME:
 {resume_markdown}

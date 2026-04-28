@@ -23,6 +23,24 @@ def _sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+def _resolve_tailoring_prefs(request, profile: dict | None) -> dict:
+    """Resolve fabrication_mode and tailoring style prefs: request override → profile → default."""
+    def _get(field: str, default):
+        req_val = getattr(request, field, None)
+        if req_val is not None:
+            return req_val
+        if profile and profile.get(field) is not None:
+            val = profile.get(field)
+            return bool(val) if isinstance(default, bool) else val
+        return default
+    return {
+        "fabrication_mode": _get("fabrication_mode", False),
+        "max_projects": _get("max_projects", 4),
+        "max_bullets_per_entry": _get("max_bullets_per_entry", 3),
+        "require_quantified_bullets": _get("require_quantified_bullets", True),
+    }
+
+
 @router.post("")
 async def tailor_resume(request: TailorRequest):
     # Resolve API key
@@ -66,12 +84,11 @@ async def tailor_resume(request: TailorRequest):
                     entry_keys[sec_name] = [{"key": e["key"], "title": e["title"]} for e in sec_val["_entries"]]
 
             page_mode = request.page_mode or (profile.get("page_mode", "single") if profile else "single")
-            fabrication_mode = (
-                request.fabrication_mode
-                if request.fabrication_mode is not None
-                else bool(profile.get("fabrication_mode", 0)) if profile else False
-            )
-            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level, page_mode, entry_keys, fabrication_mode=fabrication_mode)
+            prefs = _resolve_tailoring_prefs(request, profile)
+            fabrication_mode = prefs["fabrication_mode"]
+            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level, page_mode, entry_keys,
+                                              fabrication_mode=prefs["fabrication_mode"],
+                                              max_projects=prefs["max_projects"])
             tool_calls = plan.get("tool_calls", [])
             sections_unchanged = plan.get("sections_unchanged", [])
 
@@ -104,7 +121,9 @@ async def tailor_resume(request: TailorRequest):
             for call in tool_calls:
                 call["role_type"] = role_type
                 call["candidate_facts"] = candidate_facts
-                call["fabrication_mode"] = fabrication_mode
+                call["fabrication_mode"] = prefs["fabrication_mode"]
+                call["max_bullets_per_entry"] = prefs["max_bullets_per_entry"]
+                call["require_quantified_bullets"] = prefs["require_quantified_bullets"]
 
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
             for call in active_calls:
@@ -237,11 +256,8 @@ async def execute_tailoring(request: ExecuteRequest):
             gemini = GeminiClient(api_key)
             tool_calls = plan.get("tool_calls", [])
             sections_unchanged = plan.get("sections_unchanged", [])
-            fabrication_mode = (
-                request.fabrication_mode
-                if request.fabrication_mode is not None
-                else bool(profile.get("fabrication_mode", 0)) if profile else False
-            )
+            prefs = _resolve_tailoring_prefs(request, profile)
+            fabrication_mode = prefs["fabrication_mode"]
 
             # Phase 1: Parse resume
             yield _sse_event("status", {"phase": "parsing", "message": "Parsing resume..."})
@@ -254,7 +270,9 @@ async def execute_tailoring(request: ExecuteRequest):
             for call in tool_calls:
                 call["role_type"] = role_type
                 call["candidate_facts"] = candidate_facts
-                call["fabrication_mode"] = fabrication_mode
+                call["fabrication_mode"] = prefs["fabrication_mode"]
+                call["max_bullets_per_entry"] = prefs["max_bullets_per_entry"]
+                call["require_quantified_bullets"] = prefs["require_quantified_bullets"]
 
             active_calls = [c for c in tool_calls if c.get("action") != "keep"]
             for call in active_calls:

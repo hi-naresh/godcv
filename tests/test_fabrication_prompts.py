@@ -191,3 +191,46 @@ async def test_suggestions_fabrication_swaps_block():
     await agent.generate(gap_suggestions=["g"], tailored_resume="r", job_description="j", fabrication_mode=True)
     assert "FABRICATION ALLOWED" in fake.prompt
     assert "NEVER fabricate professional experience" not in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_uses_custom_max_projects():
+    fake = FakeGemini()
+    agent = OrchestratorAgent(fake)
+    await agent.analyze(resume_markdown="r", job_description="j", max_projects=6)
+    assert "Always select up to 6 projects total" in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_experience_uses_custom_bullet_cap():
+    fake = FakeGemini()
+    agent = ExperienceAgent(fake)
+    await agent.run(
+        section_content="o", instructions="i", job_description="j",
+        extra={"role_type": "backend", "max_bullets_per_entry": 2},
+    )
+    assert "Use 1-2 bullets per entry" in fake.prompt
+    assert "use up to" not in fake.prompt  # no "up to N" wording when capped at 2
+
+
+@pytest.mark.asyncio
+async def test_experience_drops_quantified_requirement_when_disabled():
+    fake = FakeGemini()
+    agent = ExperienceAgent(fake)
+    await agent.run(
+        section_content="o", instructions="i", job_description="j",
+        extra={"role_type": "backend", "require_quantified_bullets": False},
+    )
+    assert "EVERY bullet MUST include a quantified result" not in fake.prompt
+    assert "Prefer quantified results when available" in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_projects_uses_custom_bullet_cap_with_ceiling():
+    fake = FakeGemini()
+    agent = ProjectsAgent(fake)
+    await agent.run(
+        section_content="o", instructions="i", job_description="j",
+        extra={"role_type": "backend", "max_bullets_per_entry": 5},
+    )
+    assert "use up to 5 bullets" in fake.prompt

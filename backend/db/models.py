@@ -8,6 +8,9 @@ class ProfileCreate(BaseModel):
     gemini_api_key: str = ""
     page_mode: str = "single"
     fabrication_mode: bool = False
+    max_projects: int = 4
+    max_bullets_per_entry: int = 3
+    require_quantified_bullets: bool = True
 
 
 class ProfileUpdate(BaseModel):
@@ -16,6 +19,9 @@ class ProfileUpdate(BaseModel):
     gemini_api_key: str | None = None
     page_mode: str | None = None
     fabrication_mode: bool | None = None
+    max_projects: int | None = None
+    max_bullets_per_entry: int | None = None
+    require_quantified_bullets: bool | None = None
 
 
 class ProfileResponse(BaseModel):
@@ -25,6 +31,9 @@ class ProfileResponse(BaseModel):
     gemini_api_key: str
     page_mode: str
     fabrication_mode: bool
+    max_projects: int
+    max_bullets_per_entry: int
+    require_quantified_bullets: bool
     created_at: str
     updated_at: str
 
@@ -47,6 +56,9 @@ class TailorRequest(BaseModel):
     page_mode: str = "single"
     analyze_only: bool = False
     fabrication_mode: bool | None = None
+    max_projects: int | None = None
+    max_bullets_per_entry: int | None = None
+    require_quantified_bullets: bool | None = None
 
 
 class ExecuteRequest(BaseModel):
@@ -56,6 +68,9 @@ class ExecuteRequest(BaseModel):
     seniority_level: str | None = None
     plan: dict
     fabrication_mode: bool | None = None
+    max_projects: int | None = None
+    max_bullets_per_entry: int | None = None
+    require_quantified_bullets: bool | None = None
 
 
 class TailoringHistoryResponse(BaseModel):

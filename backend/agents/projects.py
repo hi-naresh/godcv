@@ -14,6 +14,27 @@ class ProjectsAgent:
         generate_new = extra.get("generate_projects", False) if extra else False
         candidate_skills = extra.get("candidate_skills", "") if extra else ""
         fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        max_bullets = extra.get("max_bullets_per_entry", 3) if extra else 3
+        require_quant = extra.get("require_quantified_bullets", True) if extra else True
+
+        if max_bullets <= 1:
+            bullet_count_rule = "- Use exactly 1 bullet per entry — make it count"
+        elif max_bullets == 2:
+            bullet_count_rule = "- Use 1-2 bullets per entry"
+        else:
+            bullet_count_rule = (
+                f"- Default to 1-2 bullets per entry; use up to {max_bullets} bullets ONLY if each "
+                f"additional bullet adds strongly-justified JD-relevant impact"
+            )
+
+        if require_quant:
+            quantified_rule = (
+                "- EVERY bullet MUST include a quantified result (numbers, percentages, $ amounts, "
+                "time saved, scale, throughput)"
+            )
+        else:
+            quantified_rule = "- Prefer quantified results when available, but qualitative outcomes are acceptable"
+
         is_technical = role_type in ("ai_ml", "backend", "data_eng", "frontend", "devops", "fullstack", "")
 
         if is_technical:
@@ -93,8 +114,8 @@ STRATEGY — Think like the hiring manager reading these projects:
 
 WHAT YOU MUST DO:
 - Reorder projects: most JD-relevant first
-- Default to 1-2 bullets per project; use 3 bullets ONLY if a third bullet adds strongly-justified JD-relevant impact
-- EVERY bullet MUST include a quantified result (numbers, percentages, $ amounts, time saved, scale, throughput)
+{bullet_count_rule}
+{quantified_rule}
 - Use JD terminology ONLY where it truthfully applies
 {tech_stack_rule}
 {generation_rule}

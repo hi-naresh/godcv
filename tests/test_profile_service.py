@@ -37,3 +37,22 @@ async def test_update_profile_toggles_fabrication():
     assert updated["fabrication_mode"] == 1
     updated = await profile_service.update_profile(p["id"], fabrication_mode=False)
     assert updated["fabrication_mode"] == 0
+
+
+@pytest.mark.asyncio
+async def test_create_profile_default_tailoring_prefs():
+    p = await profile_service.create_profile(name="N", master_resume="m")
+    assert p["max_projects"] == 4
+    assert p["max_bullets_per_entry"] == 3
+    assert p["require_quantified_bullets"] == 1
+
+
+@pytest.mark.asyncio
+async def test_update_profile_tailoring_prefs():
+    p = await profile_service.create_profile(name="N", master_resume="m")
+    updated = await profile_service.update_profile(
+        p["id"], max_projects=6, max_bullets_per_entry=2, require_quantified_bullets=False
+    )
+    assert updated["max_projects"] == 6
+    assert updated["max_bullets_per_entry"] == 2
+    assert updated["require_quantified_bullets"] == 0

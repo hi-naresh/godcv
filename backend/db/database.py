@@ -35,6 +35,9 @@ async def _init_tables(db: aiosqlite.Connection):
             gemini_api_key TEXT DEFAULT '',
             page_mode TEXT DEFAULT 'single',
             fabrication_mode INTEGER DEFAULT 0,
+            max_projects INTEGER DEFAULT 4,
+            max_bullets_per_entry INTEGER DEFAULT 3,
+            require_quantified_bullets INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -85,4 +88,13 @@ async def _init_tables(db: aiosqlite.Connection):
         await db.commit()
     if "fabrication_mode" not in columns:
         await db.execute("ALTER TABLE profiles ADD COLUMN fabrication_mode INTEGER DEFAULT 0")
+        await db.commit()
+    if "max_projects" not in columns:
+        await db.execute("ALTER TABLE profiles ADD COLUMN max_projects INTEGER DEFAULT 4")
+        await db.commit()
+    if "max_bullets_per_entry" not in columns:
+        await db.execute("ALTER TABLE profiles ADD COLUMN max_bullets_per_entry INTEGER DEFAULT 3")
+        await db.commit()
+    if "require_quantified_bullets" not in columns:
+        await db.execute("ALTER TABLE profiles ADD COLUMN require_quantified_bullets INTEGER DEFAULT 1")
         await db.commit()
