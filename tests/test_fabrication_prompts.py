@@ -56,3 +56,27 @@ async def test_summary_fabrication_swaps_block():
     )
     assert "FABRICATION ALLOWED" in fake.prompt
     assert "only mention skills and experience the candidate actually has" not in fake.prompt
+
+
+from backend.agents.skills import SkillsAgent
+
+
+@pytest.mark.asyncio
+async def test_skills_truthful_by_default():
+    fake = FakeGemini()
+    agent = SkillsAgent(fake)
+    await agent.run(section_content="orig", instructions="instr", job_description="jd", extra={})
+    assert "Do NOT fabricate skills the candidate doesn't have" in fake.prompt
+    assert "FABRICATION ALLOWED" not in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_skills_fabrication_swaps_block():
+    fake = FakeGemini()
+    agent = SkillsAgent(fake)
+    await agent.run(
+        section_content="orig", instructions="instr", job_description="jd",
+        extra={"fabrication_mode": True},
+    )
+    assert "FABRICATION ALLOWED" in fake.prompt
+    assert "Do NOT fabricate skills the candidate doesn't have" not in fake.prompt

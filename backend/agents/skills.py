@@ -1,4 +1,5 @@
 from backend.services.gemini import GeminiClient
+from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
 
 
 class SkillsAgent:
@@ -9,6 +10,17 @@ class SkillsAgent:
                   job_description: str, extra: dict = None) -> str:
         promote = extra.get("promote", []) if extra else []
         demote = extra.get("demote", []) if extra else []
+        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        if fabrication_mode:
+            truthfulness_rules = (
+                "4. " + FABRICATION_ALLOWED_BLOCK +
+                "5. You may add up to 3 plausible JD-relevant skills consistent with the candidate's stack."
+            )
+        else:
+            truthfulness_rules = (
+                "4. Do NOT remove any existing skills\n"
+                "5. Do NOT fabricate skills the candidate doesn't have"
+            )
 
         prompt = f"""You are a resume skills section optimizer. Reorder this skills section so the most JD-relevant skills jump out first.
 
@@ -16,8 +28,7 @@ YOUR GOAL: A recruiter scans the skills section in 3 seconds. Make sure they imm
 1. Put the CATEGORY that best matches the JD first (e.g., if JD is about data engineering, "Data Engineering:" goes first)
 2. Within each category, put JD-mentioned skills FIRST
 3. You may add 1-2 skills if the candidate clearly has them based on their experience (e.g., if they use LangChain, they know Python)
-4. Do NOT remove any existing skills
-5. Do NOT fabricate skills the candidate doesn't have
+{truthfulness_rules}
 
 FORMATTING — follow this EXACTLY:
 - Each category on its own line: **Category Name:** skill1, skill2, skill3.
