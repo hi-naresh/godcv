@@ -14,6 +14,9 @@ const resetting = ref(false)
 
 const apiKey = ref('')
 const fabricationMode = ref(false)
+const maxProjects = ref(4)
+const maxBulletsPerEntry = ref(3)
+const requireQuantifiedBullets = ref(true)
 const saving = ref(false)
 const msg = ref('')
 
@@ -51,6 +54,9 @@ onMounted(async () => {
     if (p.page_mode) store.pageMode = p.page_mode
     apiKey.value = p.gemini_api_key || ''
     fabricationMode.value = !!p.fabrication_mode
+    if (typeof p.max_projects === 'number') maxProjects.value = p.max_projects
+    if (typeof p.max_bullets_per_entry === 'number') maxBulletsPerEntry.value = p.max_bullets_per_entry
+    requireQuantifiedBullets.value = !!p.require_quantified_bullets
   }
   await Promise.all([loadUsage(), loadModels()])
 })
@@ -91,6 +97,15 @@ watch(() => store.pageMode, (val) => {
 
 watch(fabricationMode, (val) => {
   if (store.profile) updateProfile({ fabrication_mode: val })
+})
+watch(maxProjects, (val) => {
+  if (store.profile) updateProfile({ max_projects: val })
+})
+watch(maxBulletsPerEntry, (val) => {
+  if (store.profile) updateProfile({ max_bullets_per_entry: val })
+})
+watch(requireQuantifiedBullets, (val) => {
+  if (store.profile) updateProfile({ require_quantified_bullets: val })
 })
 
 async function saveApiKey() {
@@ -264,6 +279,32 @@ function barColor(p: number): string {
       </label>
     </div>
 
+    <div class="pref-card">
+      <h3>Tailoring Style</h3>
+      <p class="pref-desc">Controls how compact or detailed the tailored resume is.</p>
+
+      <div class="style-row">
+        <label class="style-label">Max projects</label>
+        <input type="number" min="1" max="10" v-model.number="maxProjects" class="pref-input style-input" />
+        <span class="style-hint">total projects after tailoring (default 4)</span>
+      </div>
+
+      <div class="style-row">
+        <label class="style-label">Max bullets per entry</label>
+        <input type="number" min="1" max="6" v-model.number="maxBulletsPerEntry" class="pref-input style-input" />
+        <span class="style-hint">applies to experience and projects (default 3)</span>
+      </div>
+
+      <div class="style-row">
+        <label class="style-label">Quantified bullets only</label>
+        <label class="fab-toggle" style="margin-left: 0;">
+          <input type="checkbox" v-model="requireQuantifiedBullets" />
+          <span class="fab-label">{{ requireQuantifiedBullets ? 'ON' : 'OFF' }}</span>
+        </label>
+        <span class="style-hint">require numbers/percentages in every bullet (default ON)</span>
+      </div>
+    </div>
+
     <div class="pref-card danger-card">
       <h3>Reset All Data</h3>
       <p class="pref-desc">Deletes all saved CVs, roles, history, and profile. Resets resume to the sample template. LLM usage stats are preserved.</p>
@@ -361,6 +402,29 @@ h2 { margin-bottom: 16px; }
 }
 .fab-toggle input { width: 18px; height: 18px; cursor: pointer; }
 .fab-label { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #888; }
+
+.style-row {
+  display: grid;
+  grid-template-columns: 180px auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.style-row:last-child { margin-bottom: 0; }
+.style-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #444;
+}
+.style-input {
+  max-width: 80px;
+  text-align: center;
+  padding: 6px 8px;
+}
+.style-hint {
+  font-size: 0.75rem;
+  color: #888;
+}
 
 /* Danger zone */
 .danger-card { border-color: #f5c6cb; grid-column: 1 / -1; }

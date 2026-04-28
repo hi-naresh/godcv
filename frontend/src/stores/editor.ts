@@ -61,6 +61,9 @@ export interface Profile {
   gemini_api_key: string
   page_mode: 'single' | 'multi'
   fabrication_mode: boolean
+  max_projects: number
+  max_bullets_per_entry: number
+  require_quantified_bullets: boolean
 }
 
 export interface JobState {
