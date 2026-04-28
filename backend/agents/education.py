@@ -1,4 +1,5 @@
 from backend.services.gemini import GeminiClient
+from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
 
 
 class EducationAgent:
@@ -7,15 +8,26 @@ class EducationAgent:
 
     async def run(self, section_content: str, instructions: str,
                   job_description: str, extra: dict = None) -> str:
+        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        if fabrication_mode:
+            coursework_rules = (
+                FABRICATION_ALLOWED_BLOCK +
+                "- You may add up to 5 plausible JD-relevant coursework items consistent with the degree program\n"
+                "- Degree names, university names, and dates remain UNCHANGED"
+            )
+        else:
+            coursework_rules = (
+                "- You may add 1-2 relevant coursework items if they are clearly implied by the degree (e.g., an MSc in AI clearly includes \"Machine Learning\")\n"
+                "- Do NOT fabricate courses that wouldn't exist in the program\n"
+                "- Do NOT remove any courses — only reorder and optionally rephrase"
+            )
         prompt = f"""You are a resume education section optimizer. Refine the coursework and emphasis in this education section to better match the job description.
 
 RULES:
 - Keep ALL degree names, university names, and dates EXACTLY as they are
 - ONLY modify the coursework lists — reorder to put most relevant courses first
 - You may rephrase course names slightly to better align with JD terminology (e.g., "Neural Networks" → "Deep Learning & Neural Networks") but keep them truthful
-- You may add 1-2 relevant coursework items if they are clearly implied by the degree (e.g., an MSc in AI clearly includes "Machine Learning")
-- Do NOT fabricate courses that wouldn't exist in the program
-- Do NOT remove any courses — only reorder and optionally rephrase
+{coursework_rules}
 - Return the COMPLETE education section content, no section header
 
 FORMATTING:
