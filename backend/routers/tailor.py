@@ -160,7 +160,7 @@ async def tailor_resume(request: TailorRequest):
                 try:
                     yield _sse_event("status", {"phase": "suggestions", "message": "Generating content suggestions..."})
                     sug_agent = SuggestionAgent(gemini)
-                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description, resume_md)
+                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description, resume_md, fabrication_mode=fabrication_mode)
                     if suggestions:
                         yield _sse_event("suggestions", {"items": suggestions})
                 except Exception as e:
@@ -301,7 +301,7 @@ async def execute_tailoring(request: ExecuteRequest):
                 try:
                     yield _sse_event("status", {"phase": "suggestions", "message": "Generating suggestions..."})
                     sug_agent = SuggestionAgent(gemini)
-                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description, resume_md)
+                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description, resume_md, fabrication_mode=fabrication_mode)
                     if suggestions:
                         yield _sse_event("suggestions", {"items": suggestions})
                 except Exception as e:

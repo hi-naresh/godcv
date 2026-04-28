@@ -1,4 +1,5 @@
 from backend.services.gemini import GeminiClient
+from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
 
 
 class SuggestionAgent:
@@ -11,6 +12,7 @@ class SuggestionAgent:
         tailored_resume: str,
         job_description: str,
         original_resume: str = "",
+        fabrication_mode: bool = False,
     ) -> list[dict]:
         """Generate concrete content suggestions from gap analysis."""
         if not gap_suggestions:
@@ -24,6 +26,32 @@ class SuggestionAgent:
 ORIGINAL FULL RESUME (may contain entries excluded from tailored version):
 {original_resume}
 """
+
+        if fabrication_mode:
+            strict_rules = (
+                FABRICATION_ALLOWED_BLOCK +
+                "Per-suggestion rules:\n"
+                "- Coursework projects may use adjacent technologies the candidate could plausibly learn\n"
+                "- Skills may include plausible JD-relevant additions consistent with the candidate's stack\n"
+                "- For REMOVE: only flag content that actively hurts the application\n"
+                "- For REPLACE: the replacement may strengthen existing claims (within plausibility)\n"
+                "- Do NOT suggest content for unfixable gaps (e.g., \"needs 5 more years of experience\")\n"
+                "- Keep suggestions concise — each bullet should be 1-2 lines max\n"
+                "- Suggest at most 7 items total, prioritise highest-impact changes"
+            )
+        else:
+            strict_rules = (
+                "STRICT RULES:\n"
+                "- NEVER fabricate professional experience, job roles, or company names\n"
+                "- NEVER claim skills the candidate has zero evidence of knowing\n"
+                "- Coursework projects MUST be derivable from listed coursework topics\n"
+                "- Skills MUST be inferable from their education, projects, or tech stack\n"
+                "- Do NOT suggest content for unfixable gaps (e.g., \"needs 5 more years of experience\")\n"
+                "- For REMOVE: only flag content that actively hurts the application (not just neutral content)\n"
+                "- For REPLACE: the replacement must be truthful — only reword, don't fabricate new claims\n"
+                "- Keep suggestions concise — each bullet should be 1-2 lines max\n"
+                "- Suggest at most 7 items total, prioritise highest-impact changes"
+            )
 
         prompt = f"""You are a resume content advisor. Given a tailored resume, a job description, the candidate's full original resume, and a list of profile gaps, generate CONCRETE content to make the CV more competitive for this role.
 
@@ -61,16 +89,7 @@ REMOVE or REPLACE content:
    - old_content: the EXACT original text being replaced (copy verbatim from the resume)
    - context: why this rewording is better
 
-STRICT RULES:
-- NEVER fabricate professional experience, job roles, or company names
-- NEVER claim skills the candidate has zero evidence of knowing
-- Coursework projects MUST be derivable from listed coursework topics
-- Skills MUST be inferable from their education, projects, or tech stack
-- Do NOT suggest content for unfixable gaps (e.g., "needs 5 more years of experience")
-- For REMOVE: only flag content that actively hurts the application (not just neutral content)
-- For REPLACE: the replacement must be truthful — only reword, don't fabricate new claims
-- Keep suggestions concise — each bullet should be 1-2 lines max
-- Suggest at most 7 items total, prioritise highest-impact changes
+{strict_rules}
 {original_context}
 TAILORED RESUME:
 {tailored_resume}

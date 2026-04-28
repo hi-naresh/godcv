@@ -170,3 +170,24 @@ async def test_projects_generate_block_softens_when_fabrication_on():
     )
     # Strict generation rule should be removed when fabrication_mode is on
     assert "Must use ONLY technologies the candidate already knows" not in fake.prompt
+
+
+from backend.agents.suggestion_agent import SuggestionAgent
+
+
+@pytest.mark.asyncio
+async def test_suggestions_truthful_by_default():
+    fake = FakeGemini(json_response=[])
+    agent = SuggestionAgent(fake)
+    await agent.generate(gap_suggestions=["g"], tailored_resume="r", job_description="j")
+    assert "NEVER fabricate professional experience" in fake.prompt
+    assert "FABRICATION ALLOWED" not in fake.prompt
+
+
+@pytest.mark.asyncio
+async def test_suggestions_fabrication_swaps_block():
+    fake = FakeGemini(json_response=[])
+    agent = SuggestionAgent(fake)
+    await agent.generate(gap_suggestions=["g"], tailored_resume="r", job_description="j", fabrication_mode=True)
+    assert "FABRICATION ALLOWED" in fake.prompt
+    assert "NEVER fabricate professional experience" not in fake.prompt
