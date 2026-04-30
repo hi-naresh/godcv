@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { SeniorityLevel } from '../composables/useSeniority'
+import type { RoleLevel } from '../composables/useRoleLevel'
 
 export interface ToolCall {
   agent: string
@@ -60,7 +60,7 @@ export interface JobState {
   id: string
   title: string
   jobDescription: string
-  seniorityLevel: SeniorityLevel | null
+  roleLevel: RoleLevel | null
   tailoringStatus: 'idle' | 'analyzing' | 'analyzed' | 'running' | 'done' | 'error'
   statusMessage: string | null
   tailoringPlan: ToolCall[] | null
@@ -88,7 +88,7 @@ export const useEditorStore = defineStore('editor', () => {
       id,
       title: '',
       jobDescription: '',
-      seniorityLevel: null,
+      roleLevel: null,
       tailoringStatus: 'idle',
       statusMessage: null,
       tailoringPlan: null,

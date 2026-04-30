@@ -174,7 +174,7 @@ function discardChanges() {
           :job="activeJob"
           @update:title="store.updateJob(activeJob!.id, { title: $event })"
           @update:job-description="store.updateJob(activeJob!.id, { jobDescription: $event })"
-          @update:seniority-level="store.updateJob(activeJob!.id, { seniorityLevel: $event })"
+          @update:role-level="store.updateJob(activeJob!.id, { roleLevel: $event })"
           @remove="removeJob(activeJob!.id)"
         />
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { SENIORITY_OPTIONS, type SeniorityLevel } from '../composables/useSeniority'
+import type { RoleLevel } from '../composables/useRoleLevel'
 import type { JobState } from '../stores/editor'
 
 const props = defineProps<{ job: JobState }>()
@@ -8,7 +8,7 @@ const props = defineProps<{ job: JobState }>()
 const emit = defineEmits<{
   'update:title': [value: string]
   'update:jobDescription': [value: string]
-  'update:seniorityLevel': [value: SeniorityLevel | null]
+  'update:roleLevel': [value: RoleLevel | null]
   remove: []
 }>()
 
@@ -89,17 +89,18 @@ const fitWarning = computed(() => {
       </div>
     </div>
 
-    <select
-      v-if="job.analysis"
-      class="seniority-select"
-      :value="job.seniorityLevel || ''"
-      @change="$emit('update:seniorityLevel', ($event.target as HTMLSelectElement).value as SeniorityLevel || null)"
-    >
-      <option value="">Override seniority</option>
-      <option v-for="level in SENIORITY_OPTIONS" :key="level" :value="level">
-        {{ level.charAt(0).toUpperCase() + level.slice(1) }}
-      </option>
-    </select>
+    <div v-if="job.roleLevel" class="role-level-chip">
+      <button
+        type="button"
+        :class="{ active: job.roleLevel === 'graduate' }"
+        @click="$emit('update:roleLevel', 'graduate')"
+      >Graduate</button>
+      <button
+        type="button"
+        :class="{ active: job.roleLevel === 'non-graduate' }"
+        @click="$emit('update:roleLevel', 'non-graduate')"
+      >Non-Graduate</button>
+    </div>
   </div>
 </template>
 
@@ -127,10 +128,19 @@ const fitWarning = computed(() => {
 }
 .remove-btn:hover { background: #ffe0e0; color: #d00; }
 .job-card-row { display: flex; align-items: center; gap: 8px; }
-.seniority-select {
-  flex: 1; border: 1px solid #d9d9d9; border-radius: 6px;
-  padding: 5px 8px; font-size: 0.8rem; background: #fff;
+.role-level-chip {
+  display: inline-flex; border: 1px solid #d9d9d9; border-radius: 6px; overflow: hidden;
+  align-self: flex-start;
 }
+.role-level-chip button {
+  border: none; background: #fff; padding: 4px 10px; font-size: 0.75rem;
+  font-weight: 600; cursor: pointer; color: #666; line-height: 1.4;
+}
+.role-level-chip button:not(:last-child) {
+  border-right: 1px solid #d9d9d9;
+}
+.role-level-chip button:hover:not(.active) { background: #f5f5f5; }
+.role-level-chip button.active { background: #111; color: #fff; }
 .status-badge {
   font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;
 }

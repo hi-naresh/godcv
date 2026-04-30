@@ -1,4 +1,5 @@
 import { useEditorStore } from '../stores/editor'
+import type { RoleLevel } from './useRoleLevel'
 import { useToast } from './useToast'
 
 export function useTailor() {
@@ -30,7 +31,7 @@ export function useTailor() {
     const body: Record<string, any> = { job_description: job.jobDescription }
     if (apiKey) body.gemini_api_key = apiKey
     if (resumeOverride) body.resume_override = resumeOverride
-    if (job.seniorityLevel) body.seniority_level = job.seniorityLevel
+    if (job.roleLevel) body.role_level = job.roleLevel
     if (analyzeOnly) body.analyze_only = true
     body.page_mode = store.pageMode
 
@@ -169,14 +170,14 @@ export function useTailor() {
         if (analysis) {
           const aiTitle = analysis.job_title as string
           const aiCompany = analysis.company as string
-          const aiPosition = analysis.position_level as string
+          const aiRoleLevel = (data.analysis as any)?.role_level
           if (aiTitle && aiCompany && !job.title) {
             updates.title = `${aiTitle} @ ${aiCompany}`
           } else if (aiTitle && !job.title) {
             updates.title = aiTitle
           }
-          if (aiPosition && !job.seniorityLevel) {
-            updates.seniorityLevel = aiPosition as any
+          if (aiRoleLevel && !job.roleLevel) {
+            updates.roleLevel = aiRoleLevel as RoleLevel
           }
         }
         store.updateJob(jobId, updates)
@@ -256,7 +257,7 @@ export function useTailor() {
       }
       if (apiKey) body.gemini_api_key = apiKey
       if (resumeOverride) body.resume_override = resumeOverride
-      if (job.seniorityLevel) body.seniority_level = job.seniorityLevel
+      if (job.roleLevel) body.role_level = job.roleLevel
 
       fetch('/api/tailor/execute', {
         method: 'POST',

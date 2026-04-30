@@ -37,9 +37,9 @@ describe('editor store — jobs', () => {
     const store = useEditorStore()
     store.addJob()
     const id = [...store.jobs.keys()][0]
-    store.updateJob(id, { title: 'ML Engineer @ Google', seniorityLevel: 'senior' })
+    store.updateJob(id, { title: 'ML Engineer @ Google', roleLevel: 'non-graduate' })
     expect(store.jobs.get(id)!.title).toBe('ML Engineer @ Google')
-    expect(store.jobs.get(id)!.seniorityLevel).toBe('senior')
+    expect(store.jobs.get(id)!.roleLevel).toBe('non-graduate')
   })
 
   it('sets active job', () => {

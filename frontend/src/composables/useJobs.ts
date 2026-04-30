@@ -1,5 +1,5 @@
 import { useEditorStore, type JobState } from '../stores/editor'
-import { detectSeniority } from './useSeniority'
+import { detectRoleLevel } from './useRoleLevel'
 
 export function useJobs() {
   const store = useEditorStore()
@@ -13,11 +13,11 @@ export function useJobs() {
   }
 
   function updateJobDescription(id: string, jd: string) {
-    const detected = detectSeniority(jd)
+    const detected = detectRoleLevel(jd)
     const job = store.jobs.get(id)
     const updates: Partial<JobState> = { jobDescription: jd }
-    if (detected && (!job?.seniorityLevel || job.seniorityLevel === null)) {
-      updates.seniorityLevel = detected
+    if (detected && (!job?.roleLevel || job.roleLevel === null)) {
+      updates.roleLevel = detected
     }
     store.updateJob(id, updates)
   }
@@ -26,13 +26,13 @@ export function useJobs() {
     store.updateJob(id, { title })
   }
 
-  function setJobSeniority(id: string, level: string | null) {
-    store.updateJob(id, { seniorityLevel: level as any })
+  function setRoleLevel(id: string, level: string | null) {
+    store.updateJob(id, { roleLevel: level as any })
   }
 
   function getJobList(): JobState[] {
     return [...store.jobs.values()]
   }
 
-  return { addJob, removeJob, updateJobDescription, setJobTitle, setJobSeniority, getJobList }
+  return { addJob, removeJob, updateJobDescription, setJobTitle, setRoleLevel, getJobList }
 }
