@@ -12,7 +12,6 @@ from backend.agents.bus import AgentBus
 from backend.agents.profile_learner import ProfileLearnerAgent
 from backend.agents.ats_scorer import ATSScorerAgent
 from backend.agents.resume_scorer import ResumeScorerAgent
-from backend.agents.suggestion_agent import SuggestionAgent
 from backend.config import GEMINI_API_KEY
 
 logger = logging.getLogger("godcv.tailor")
@@ -176,18 +175,6 @@ async def tailor_resume(request: TailorRequest):
             except Exception as e:
                 logger.error("After-scoring failed: %s", e)
 
-            # Phase 4.6: Generate content suggestions from gaps
-            gap_suggestions = plan.get("scoring", {}).get("gap_suggestions", [])
-            if gap_suggestions:
-                try:
-                    yield _sse_event("status", {"phase": "suggestions", "message": "Generating content suggestions..."})
-                    sug_agent = SuggestionAgent(gemini)
-                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description, resume_md, fabrication_mode=stealth_mode)
-                    if suggestions:
-                        yield _sse_event("suggestions", {"items": suggestions})
-                except Exception as e:
-                    logger.error("Suggestion generation failed: %s", e)
-
             # Phase 4.7: ATS Scoring
             try:
                 yield _sse_event("status", {"phase": "ats_scoring", "message": "Running ATS analysis..."})
@@ -318,18 +305,6 @@ async def execute_tailoring(request: ExecuteRequest):
                 yield _sse_event("scoring_after", after_scores)
             except Exception as e:
                 logger.error("After-scoring failed: %s", e)
-
-            # Phase 5: Generate suggestions
-            gap_suggestions = plan.get("scoring", {}).get("gap_suggestions", [])
-            if gap_suggestions:
-                try:
-                    yield _sse_event("status", {"phase": "suggestions", "message": "Generating suggestions..."})
-                    sug_agent = SuggestionAgent(gemini)
-                    suggestions = await sug_agent.generate(gap_suggestions, tailored_md, job_description, resume_md, fabrication_mode=stealth_mode)
-                    if suggestions:
-                        yield _sse_event("suggestions", {"items": suggestions})
-                except Exception as e:
-                    logger.error("Suggestion generation failed: %s", e)
 
             # Phase 6: ATS Scoring
             try:
