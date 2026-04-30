@@ -34,7 +34,7 @@ async def _init_tables(db: aiosqlite.Connection):
             parsed_sections TEXT,
             gemini_api_key TEXT DEFAULT '',
             page_mode TEXT DEFAULT 'single',
-            fabrication_mode INTEGER DEFAULT 0,
+            stealth_mode INTEGER DEFAULT 0,
             max_projects INTEGER DEFAULT 4,
             max_bullets_per_entry INTEGER DEFAULT 3,
             require_quantified_bullets INTEGER DEFAULT 1,
@@ -86,8 +86,13 @@ async def _init_tables(db: aiosqlite.Connection):
     if "page_mode" not in columns:
         await db.execute("ALTER TABLE profiles ADD COLUMN page_mode TEXT DEFAULT 'single'")
         await db.commit()
-    if "fabrication_mode" not in columns:
-        await db.execute("ALTER TABLE profiles ADD COLUMN fabrication_mode INTEGER DEFAULT 0")
+    # Rename fabrication_mode → stealth_mode (idempotent)
+    if "fabrication_mode" in columns and "stealth_mode" not in columns:
+        await db.execute("ALTER TABLE profiles RENAME COLUMN fabrication_mode TO stealth_mode")
+        await db.commit()
+    elif "stealth_mode" not in columns:
+        # Fresh DB path didn't run for some reason — add the column
+        await db.execute("ALTER TABLE profiles ADD COLUMN stealth_mode INTEGER DEFAULT 0")
         await db.commit()
     if "max_projects" not in columns:
         await db.execute("ALTER TABLE profiles ADD COLUMN max_projects INTEGER DEFAULT 4")

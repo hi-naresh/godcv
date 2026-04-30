@@ -14,7 +14,7 @@ async def get_profile(profile_id: int = 1) -> dict | None:
 
 async def create_profile(
     name: str, master_resume: str, gemini_api_key: str = "", page_mode: str = "single",
-    fabrication_mode: bool = False, max_projects: int = 4,
+    stealth_mode: bool = False, max_projects: int = 4,
     max_bullets_per_entry: int = 3, require_quantified_bullets: bool = True,
 ) -> dict:
     db = await get_db()
@@ -25,8 +25,8 @@ async def create_profile(
         "separators": parsed["separators"],
     })
     cursor = await db.execute(
-        "INSERT INTO profiles (name, master_resume, parsed_sections, gemini_api_key, page_mode, fabrication_mode, max_projects, max_bullets_per_entry, require_quantified_bullets) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (name, master_resume, parsed_json, gemini_api_key, page_mode, int(bool(fabrication_mode)), max_projects, max_bullets_per_entry, int(bool(require_quantified_bullets))),
+        "INSERT INTO profiles (name, master_resume, parsed_sections, gemini_api_key, page_mode, stealth_mode, max_projects, max_bullets_per_entry, require_quantified_bullets) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (name, master_resume, parsed_json, gemini_api_key, page_mode, int(bool(stealth_mode)), max_projects, max_bullets_per_entry, int(bool(require_quantified_bullets))),
     )
     await db.commit()
     return await get_profile(cursor.lastrowid)
@@ -36,8 +36,8 @@ async def update_profile(profile_id: int, **kwargs) -> dict | None:
     db = await get_db()
     fields = []
     values = []
-    BOOL_KEYS = ("fabrication_mode", "require_quantified_bullets")
-    for key in ("name", "master_resume", "gemini_api_key", "page_mode", "fabrication_mode",
+    BOOL_KEYS = ("stealth_mode", "require_quantified_bullets")
+    for key in ("name", "master_resume", "gemini_api_key", "page_mode", "stealth_mode",
                 "max_projects", "max_bullets_per_entry", "require_quantified_bullets"):
         if key in kwargs and kwargs[key] is not None:
             fields.append(f"{key} = ?")
