@@ -60,7 +60,7 @@ export interface Profile {
   master_resume: string
   gemini_api_key: string
   page_mode: 'single' | 'multi'
-  fabrication_mode: boolean
+  stealth_mode: boolean
   max_projects: number
   max_bullets_per_entry: number
   require_quantified_bullets: boolean

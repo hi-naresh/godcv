@@ -13,7 +13,7 @@ const { show: showToast } = useToast()
 const resetting = ref(false)
 
 const apiKey = ref('')
-const fabricationMode = ref(false)
+const stealthMode = ref(false)
 const maxProjects = ref(4)
 const maxBulletsPerEntry = ref(3)
 const requireQuantifiedBullets = ref(true)
@@ -53,7 +53,7 @@ onMounted(async () => {
     store.profile = p
     if (p.page_mode) store.pageMode = p.page_mode
     apiKey.value = p.gemini_api_key || ''
-    fabricationMode.value = !!p.fabrication_mode
+    stealthMode.value = !!p.stealth_mode
     if (typeof p.max_projects === 'number') maxProjects.value = p.max_projects
     if (typeof p.max_bullets_per_entry === 'number') maxBulletsPerEntry.value = p.max_bullets_per_entry
     requireQuantifiedBullets.value = !!p.require_quantified_bullets
@@ -95,8 +95,8 @@ watch(() => store.pageMode, (val) => {
   if (store.profile) updateProfile({ page_mode: val })
 })
 
-watch(fabricationMode, (val) => {
-  if (store.profile) updateProfile({ fabrication_mode: val })
+watch(stealthMode, (val) => {
+  if (store.profile) updateProfile({ stealth_mode: val })
 })
 watch(maxProjects, (val) => {
   if (store.profile) updateProfile({ max_projects: val })
@@ -270,12 +270,12 @@ function barColor(p: number): string {
     </div>
 
     <div class="pref-card">
-      <h3>Fabrication Mode</h3>
-      <p class="pref-desc">When ON, the AI may invent plausible metrics, projects, bullets, coursework, and skills tailored to the job description. Off by default.</p>
+      <h3>Stealth Mode</h3>
+      <p class="pref-desc">When ON, agents may invent believable, JD-aligned content where the master CV has gaps. When OFF (default), agents only reorder and rephrase existing content — no invention.</p>
       <label class="fab-toggle">
-        <input type="checkbox" v-model="fabricationMode" />
+        <input type="checkbox" v-model="stealthMode" />
         <span class="fab-slider"></span>
-        <span class="fab-label">{{ fabricationMode ? 'ON' : 'OFF' }}</span>
+        <span class="fab-label">{{ stealthMode ? 'ON' : 'OFF' }}</span>
       </label>
     </div>
 
