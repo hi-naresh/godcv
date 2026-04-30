@@ -58,6 +58,20 @@ def _section_order_for(role_level: str | None) -> list[str]:
     return SECTION_ORDER_NON_GRADUATE
 
 
+def _strip_generate_projects_when_strict(tool_calls: list[dict], stealth_mode: bool) -> list[dict]:
+    """When stealth is off, defensively strip generate_projects flags from
+    orchestrator output so a drifted prompt can't cause the projects agent
+    to fabricate. No-op when stealth is on."""
+    if stealth_mode:
+        return tool_calls
+    cleaned = []
+    for call in tool_calls:
+        c = dict(call)
+        c.pop("generate_projects", None)
+        cleaned.append(c)
+    return cleaned
+
+
 @router.post("")
 async def tailor_resume(request: TailorRequest):
     # Resolve API key
@@ -118,6 +132,7 @@ async def tailor_resume(request: TailorRequest):
                 max_projects=prefs["max_projects"],
             )
             tool_calls = plan.get("tool_calls", [])
+            tool_calls = _strip_generate_projects_when_strict(tool_calls, stealth_mode)
             sections_unchanged = plan.get("sections_unchanged", [])
 
             active = [c for c in tool_calls if c.get("action") != "keep"]
@@ -274,6 +289,7 @@ async def execute_tailoring(request: ExecuteRequest):
             sections_unchanged = plan.get("sections_unchanged", [])
             prefs = _resolve_tailoring_prefs(request, profile)
             stealth_mode = prefs["stealth_mode"]
+            tool_calls = _strip_generate_projects_when_strict(tool_calls, prefs["stealth_mode"])
             role_level = request.role_level
 
             # Phase 1: Parse resume
