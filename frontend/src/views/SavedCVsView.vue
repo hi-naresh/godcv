@@ -3,11 +3,13 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSavedCVs, type SavedCV } from '../composables/useSavedCVs'
 import { useEditorStore } from '../stores/editor'
+import { useExport } from '../composables/useExport'
 import ResumePreview from '../components/ResumePreview.vue'
 
 const store = useEditorStore()
 const router = useRouter()
 const { fetchSavedCVs, deleteCV } = useSavedCVs()
+const { exportPdf: exportPdfBackend } = useExport()
 
 const cvs = ref<SavedCV[]>([])
 const selectedCV = ref<SavedCV | null>(null)
@@ -34,7 +36,7 @@ async function removeCv(cv: SavedCV) {
   if (selectedCV.value?.id === cv.id) selectedCV.value = null
 }
 
-function downloadPdf() {
+function printViaBrowser() {
   const sheet = document.querySelector('.sheet') as HTMLElement
   if (!sheet) return
   sheet.classList.add('export-mode')
@@ -51,6 +53,19 @@ function downloadPdf() {
   }
   window.addEventListener('afterprint', cleanup, { once: true })
   setTimeout(cleanup, 2000)
+}
+
+async function downloadPdf() {
+  const cv = selectedCV.value
+  if (!cv) return
+  const filename = cv.name.replace(/\s+/g, '_').replace(/[^A-Za-z0-9._-]/g, '') + '.pdf'
+  await exportPdfBackend({
+    markdown: cv.markdown,
+    pageMode: store.pageMode,
+    filename,
+    documentTitle: cv.name,
+    onFallback: printViaBrowser,
+  })
 }
 
 function formatDate(d: string) {

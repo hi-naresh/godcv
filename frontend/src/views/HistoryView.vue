@@ -2,10 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEditorStore } from '../stores/editor'
+import { useExport } from '../composables/useExport'
 import ResumePreview from '../components/ResumePreview.vue'
 
 const store = useEditorStore()
 const router = useRouter()
+const { exportPdf: exportPdfBackend } = useExport()
 const history = ref<any[]>([])
 const selected = ref<any>(null)
 
@@ -27,7 +29,7 @@ function loadInEditor(job: any) {
   }
 }
 
-function downloadPdf() {
+function printViaBrowser() {
   const sheet = document.querySelector('.sheet') as HTMLElement
   if (!sheet) return
   sheet.classList.add('export-mode')
@@ -44,6 +46,20 @@ function downloadPdf() {
   }
   window.addEventListener('afterprint', cleanup, { once: true })
   setTimeout(cleanup, 2000)
+}
+
+async function downloadPdf() {
+  const job = selected.value
+  if (!job?.tailored_resume) return
+  const parts = [job.job_title, job.company].filter(Boolean)
+  const filename = (parts.join('_') || 'tailored_resume').replace(/\s+/g, '_').replace(/[^A-Za-z0-9._-]/g, '') + '.pdf'
+  await exportPdfBackend({
+    markdown: job.tailored_resume,
+    pageMode: store.pageMode,
+    filename,
+    documentTitle: job.job_title || 'Resume',
+    onFallback: printViaBrowser,
+  })
 }
 
 function formatDate(d: string) {

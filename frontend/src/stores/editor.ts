@@ -35,16 +35,6 @@ export interface ATSResult {
   brutal_verdict: string
 }
 
-export interface Suggestion {
-  id: string
-  section: string
-  type: 'skill' | 'bullet' | 'project' | 'remove' | 'replace'
-  content: string
-  old_content?: string
-  skill_category?: string
-  context: string
-}
-
 export interface JobAnalysis {
   job_title: string
   company: string
@@ -81,7 +71,6 @@ export interface JobState {
   analysis: JobAnalysis | null
   scoring: JobScoring | null
   atsResult: ATSResult | null
-  suggestions: Suggestion[]
 }
 
 let _jobCounter = 0
@@ -110,7 +99,6 @@ export const useEditorStore = defineStore('editor', () => {
       analysis: null,
       scoring: null,
       atsResult: null,
-      suggestions: [],
     })
     jobs.value = new Map(jobs.value)
     return id
@@ -142,7 +130,6 @@ export const useEditorStore = defineStore('editor', () => {
       analysis: null,
       scoring: null,
       atsResult: null,
-      suggestions: [],
     })
   }
 

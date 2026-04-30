@@ -53,9 +53,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .sheet-content strong { font-weight: 700; }
 .sheet-content a { color: #0066cc; text-decoration: underline; }
 
-.sheet-content p strong + em { float: right; font-style: normal; font-weight: 700; margin-left: 1rem; white-space: nowrap; }
-.sheet-content p br { display: block; clear: both; content: ""; }
-.sheet-content p:after { content: ""; display: table; clear: both; }
+/* Role/date line — flex layout. The dot-leader span flex-grows to fill the
+   gap between the role title and the date, with overflow:hidden + min-width:0
+   so excess dots clip cleanly. The date stays pinned to the right margin
+   regardless of font size or auto-fit changes — flex re-shrinks the dots in
+   real time. JS injects a calibrated dot string in useMarkdown for ATS
+   continuity in the DOM; flex handles visual fidelity in the browser. */
+.sheet-content p.role-line {
+  display: flex;
+  align-items: baseline;
+  margin: .25rem 0 .15rem;
+  gap: 0;
+}
+.sheet-content p.role-line > strong {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-content p.role-line > em {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+  padding-left: .35em;
+}
+.sheet-content p.role-line > .dot-leader {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #e8e8e8;
+  letter-spacing: .15em;
+  font-weight: 400;
+  font-size: .9em;
+  padding: 0 .35em;
+}
+/* Legacy float for any inline strong+em that ISN'T a role-line (rare). */
+.sheet-content p:not(.role-line) strong + em { float: right; font-style: normal; font-weight: 700; margin-left: 1rem; white-space: nowrap; }
+.sheet-content p:not(.role-line) br { display: block; clear: both; content: ""; }
+.sheet-content p:not(.role-line):after { content: ""; display: table; clear: both; }
 
 .warn {
   position: absolute; right: 8px; bottom: 6px;
@@ -87,89 +125,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   padding-left: 4px;
 }
 
-/* Suggested content highlights (orange) */
-.sheet-content .suggestion {
-  background: #fff3e0;
-  padding: 0 3px;
-  border-radius: 2px;
-  position: relative;
-  transition: background 0.2s;
-}
-.sheet-content li.suggestion,
-.sheet-content .suggestion-project {
-  border-left: 2px solid #f0ad4e;
-  padding-left: 4px;
-}
-.sheet-content .suggestion-project {
-  margin: 4px 0;
-  padding: 2px 4px;
-  white-space: pre-line;
-}
-.sheet-content .suggestion:hover {
-  background: #ffe8c2;
-}
-
-/* Accept/Deny tooltip — inline at end of text, shown on hover */
-.sheet-content .sug-tooltip {
-  display: none;
-  margin-left: 4px;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-/* Remove suggestion — red highlight with strikethrough */
-.sheet-content .suggestion-remove {
-  background: #fff0f0;
-  border-left: 2px solid #dc3545;
-  padding-left: 4px;
-  text-decoration: line-through;
-  color: #999;
-  transition: background 0.2s;
-}
-.sheet-content .suggestion-remove:hover {
-  background: #ffe0e0;
-}
-
-/* Replace suggestion — old struck through, new in green */
-.sheet-content .suggestion-replace {
-  background: #fff8e6;
-  border-left: 2px solid #f0ad4e;
-  padding-left: 4px;
-  transition: background 0.2s;
-}
-.sheet-content .suggestion-replace:hover {
-  background: #fff0cc;
-}
-.sheet-content .sug-old {
-  text-decoration: line-through;
-  color: #999;
-}
-.sheet-content .sug-new {
-  background: #e6ffe6;
-  padding: 0 2px;
-  border-radius: 2px;
-}
-
-.sheet-content .suggestion:hover .sug-tooltip,
-.sheet-content .suggestion-remove:hover .sug-tooltip,
-.sheet-content .suggestion-replace:hover .sug-tooltip {
-  display: inline;
-}
-.sheet-content .sug-accept,
-.sheet-content .sug-deny {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 0.75rem;
-  padding: 1px 3px;
-  border-radius: 3px;
-  line-height: 1;
-  vertical-align: middle;
-}
-.sheet-content .sug-accept { color: #e67e22; }
-.sheet-content .sug-accept:hover { background: #fff3e0; }
-.sheet-content .sug-deny { color: #dc3545; }
-.sheet-content .sug-deny:hover { background: #fdd; }
-
 /* Justified mode: justify long text for even alignment */
 .justified .sheet-content p,
 .justified .sheet-content li {
@@ -177,7 +132,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   text-align-last: left;
 }
 /* Don't justify entry headers that have floated dates (strong + em pattern) */
-.justified .sheet-content p:has(> strong + em) {
+.justified .sheet-content p:has(> strong + em),
+.justified .sheet-content p.role-line {
   text-align: left;
 }
 .justified .sheet-content .name,
@@ -190,23 +146,40 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 }
 .justified .sheet-content .meta .sep { display: none; }
 
-/* Export mode: strip all suggestion/highlight styling for clean PDF */
-.export-mode .suggestion,
-.export-mode .suggestion-remove,
-.export-mode .suggestion-replace,
-.export-mode .suggestion-project,
-.export-mode .sug-new,
+/* Export mode: strip highlight styling for clean PDF */
 .export-mode .changed-content {
   background: none !important;
   border-left: none !important;
   padding-left: 0 !important;
-  text-decoration: none !important;
-  color: inherit !important;
 }
-.export-mode .sug-tooltip,
-.export-mode .sug-old,
 .export-mode .refining-badge {
   display: none !important;
+}
+
+/* ATS-friendly inline dates on export/print. The screen preview floats the
+   date `<em>` to the right (line 56), but extractors often treat the floated
+   text as a separate column and scramble role↔date pairing. Force inline with
+   a separator so the PDF text layer reads as one continuous line per role. */
+.export-mode .sheet-content p strong + em,
+.export-mode .sheet-content p strong + em * {
+  float: none !important;
+  margin-left: 0 !important;
+  white-space: normal !important;
+}
+.export-mode .sheet-content p strong + em::before {
+  content: "  ·  ";
+  font-weight: 400;
+}
+@media print {
+  .sheet-content p strong + em {
+    float: none !important;
+    margin-left: 0 !important;
+    white-space: normal !important;
+  }
+  .sheet-content p strong + em::before {
+    content: "  ·  ";
+    font-weight: 400;
+  }
 }
 
 @page { size: A4; margin: var(--print-page-margin, 0); }
@@ -216,19 +189,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   .nav, .panel, .sidebar, .left-panel, .page-mode-toggle, .tab-bar,
   .preview-controls, .step-guide, .score-panel, .sections-panel,
   .error-banner, .export-btn, .preview-label, .empty-preview,
-  .empty-state, .warn, .refining-badge, .sug-tooltip,
+  .empty-state, .warn, .refining-badge,
   .history-left, .job-list, .job-card, .load-btn, .delete-btn,
   .saved-left, .saved-list, .saved-card { display: none !important; }
 
-  .changed-content, .suggestion, .suggestion-remove, .suggestion-replace {
+  .changed-content {
     background: none !important;
     border-left: none !important;
     padding: 0 !important;
-    text-decoration: none !important;
-    color: inherit !important;
   }
-  .sug-old { display: none !important; }
-  .sug-new { background: none !important; padding: 0 !important; }
 
   /* Strip all wrapper padding/margin/gap so only .sheet occupies space */
   .app, .main, .editor-layout, .right-panel, .preview-area,

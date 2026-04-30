@@ -203,11 +203,6 @@ export function useTailor() {
           result: data.markdown as string,
         })
         break
-      case 'suggestions':
-        store.updateJob(jobId, {
-          suggestions: (data.items as any[]) || [],
-        })
-        break
       case 'scoring_after':
         if (job.scoring) {
           store.updateJob(jobId, {
@@ -253,7 +248,6 @@ export function useTailor() {
         result: null,
         error: null,
         atsResult: null,
-        suggestions: [],
       })
 
       const body: Record<string, any> = {

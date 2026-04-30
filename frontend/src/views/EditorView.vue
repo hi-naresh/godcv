@@ -4,6 +4,7 @@ import { useEditorStore } from '../stores/editor'
 import { useProfile } from '../composables/useProfile'
 import { useTailor } from '../composables/useTailor'
 import { useSavedCVs } from '../composables/useSavedCVs'
+import { useExport } from '../composables/useExport'
 import ResumePreview from '../components/ResumePreview.vue'
 import SectionEditor from '../components/SectionEditor.vue'
 import JobCard from '../components/JobCard.vue'
@@ -16,6 +17,7 @@ const store = useEditorStore()
 const { fetchProfile } = useProfile()
 const { analyzeJob, tailorJob } = useTailor()
 const { saveCV } = useSavedCVs()
+const { exportPdf: exportPdfBackend } = useExport()
 const saveMsg = ref('')
 const rawMode = ref(false)
 const justified = ref(true)
@@ -60,7 +62,6 @@ const activeAgentStatuses = computed(() => {
 
 const activeScoring = computed(() => activeJob.value?.scoring ?? null)
 const activeAtsResult = computed(() => activeJob.value?.atsResult ?? null)
-const activeSuggestions = computed(() => activeJob.value?.suggestions ?? [])
 
 // Per-job status helpers
 const jobIsAnalyzing = computed(() => activeJob.value?.tailoringStatus === 'analyzing')
@@ -94,26 +95,17 @@ function tailorCurrentJob() {
   tailorJob(activeJob.value.id, getApiKey(), store.markdown)
 }
 
-function exportPdf() {
+function printViaBrowser() {
   const sheet = document.querySelector('.sheet') as HTMLElement
   if (!sheet) return
-
-  // Strip suggestion highlights for clean print
   sheet.classList.add('export-mode')
-
-  // For multi-page: reset to standard sizing and enable @page margin
-  // so every page gets consistent spacing
   const isMulti = store.pageMode === 'multi'
   if (isMulti) {
     document.documentElement.style.setProperty('--base-font-size', '11px')
     document.documentElement.style.setProperty('--line-height', '1.4')
     document.documentElement.style.setProperty('--print-page-margin', 'var(--page-margin)')
   }
-
-  // Use native print for vector-quality PDF
   window.print()
-
-  // Restore after print dialog closes
   const cleanup = () => {
     sheet.classList.remove('export-mode')
     if (isMulti) {
@@ -121,8 +113,29 @@ function exportPdf() {
     }
   }
   window.addEventListener('afterprint', cleanup, { once: true })
-  // Fallback: remove after a short delay in case afterprint doesn't fire
   setTimeout(cleanup, 2000)
+}
+
+function buildExportFilename(): string {
+  const job = activeJob.value
+  const name = store.profile?.master_resume?.match(/^name:\s*(.+)$/m)?.[1]?.trim()
+  const jobPart = job?.analysis?.job_title || job?.title
+  const companyPart = job?.analysis?.company
+  const parts = [name, jobPart, companyPart].filter(Boolean)
+  const base = parts.length ? parts.join('_') : 'resume'
+  return base.replace(/\s+/g, '_').replace(/[^A-Za-z0-9._-]/g, '') + '.pdf'
+}
+
+async function exportPdf() {
+  const md = activeMarkdown.value
+  if (!md?.trim()) return
+  await exportPdfBackend({
+    markdown: md,
+    pageMode: currentPageMode.value,
+    filename: buildExportFilename(),
+    documentTitle: 'Resume',
+    onFallback: printViaBrowser,
+  })
 }
 
 async function saveCurrent() {
@@ -148,87 +161,7 @@ function discardChanges() {
   store.updateJob(job.id, { result: undefined })
 }
 
-function acceptSuggestion(sugId: string) {
-  const job = activeJob.value
-  if (!job || !job.result) return
-  const sug = job.suggestions.find(s => s.id === sugId)
-  if (!sug) return
 
-  let md = job.result
-  if (sug.type === 'remove') {
-    const textToRemove = sug.content.trim()
-    const lineRegex = new RegExp(`^[ \\t]*${textToRemove.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*\\n?`, 'gm')
-    md = md.replace(lineRegex, '')
-  } else if (sug.type === 'replace' && sug.old_content) {
-    md = md.replace(sug.old_content.trim(), sug.content.trim())
-  } else if (sug.section === 'Skills' && sug.type === 'skill') {
-    const category = sug.skill_category
-    let inserted = false
-
-    if (category) {
-      // Target the specific category line: **Category:** skill1, skill2.
-      const catEscaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const catRegex = new RegExp(
-        `(\\*\\*${catEscaped}:\\*\\*\\s*)([^\\n]*?)(\\.?)\\s*$`,
-        'mi'
-      )
-      const catMatch = md.match(catRegex)
-      if (catMatch) {
-        const fullMatch = catMatch[0]
-        const prefix = catMatch[1]    // **Category:**
-        const skills = catMatch[2]    // existing skills
-        const replacement = prefix + skills + ', ' + sug.content + '.'
-        md = md.replace(fullMatch, replacement)
-        inserted = true
-      }
-    }
-
-    // Fallback: append to the end of the skills section (last category)
-    if (!inserted) {
-      const skillsMatch = md.match(/(# Skills\n)([\s\S]*?)(\n---|\n# |\n*$)/)
-      if (skillsMatch) {
-        const before = skillsMatch[1]
-        const content = skillsMatch[2].trimEnd().replace(/\.$/, '')
-        const after = skillsMatch[3]
-        md = md.replace(skillsMatch[0], before + content + ', ' + sug.content + '.\n' + after)
-      }
-    }
-  } else if (sug.type === 'project' && sug.section === 'Projects') {
-    const projMatch = md.match(/(# Projects\n)([\s\S]*?)(\n---|\n# |\n*$)/)
-    if (projMatch) {
-      const before = projMatch[1]
-      const content = projMatch[2].trimEnd()
-      const after = projMatch[3]
-      md = md.replace(projMatch[0], before + content + '\n\n' + sug.content + after)
-    }
-  } else if (sug.type === 'bullet') {
-    const parts = sug.section.split(':')
-    const entryKey = parts[1] || ''
-    if (entryKey) {
-      const keyEscaped = entryKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const entryRegex = new RegExp(
-        `(\\*\\*[^*]*${keyEscaped}[^*]*\\*\\*[\\s\\S]*?)(\\n(?=\\n\\*\\*|\\n---|\\n#|$))`,
-        'i'
-      )
-      md = md.replace(entryRegex, (_match, entryContent, trailing) => {
-        return entryContent + '\n' + sug.content + trailing
-      })
-    }
-  }
-
-  store.updateJob(job.id, {
-    result: md,
-    suggestions: job.suggestions.filter(s => s.id !== sugId),
-  })
-}
-
-function denySuggestion(sugId: string) {
-  const job = activeJob.value
-  if (!job) return
-  store.updateJob(job.id, {
-    suggestions: job.suggestions.filter(s => s.id !== sugId),
-  })
-}
 </script>
 
 <template>
@@ -340,9 +273,6 @@ function denySuggestion(sugId: string) {
           :pageMode="currentPageMode"
           :rawMode="rawMode"
           :agentStatuses="activeAgentStatuses"
-          :suggestions="activeSuggestions"
-          @accept-suggestion="acceptSuggestion"
-          @deny-suggestion="denySuggestion"
           @update:markdown="onSectionUpdate"
         />
       </div>

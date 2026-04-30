@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { useMarkdown } from '../composables/useMarkdown'
-import type { Suggestion } from '../stores/editor'
 
 const props = defineProps<{
   markdown: string
@@ -9,12 +8,9 @@ const props = defineProps<{
   pageMode: 'single' | 'multi'
   rawMode?: boolean
   agentStatuses?: Record<string, 'pending' | 'running' | 'done'>
-  suggestions?: Suggestion[]
 }>()
 
 const emit = defineEmits<{
-  'accept-suggestion': [id: string]
-  'deny-suggestion': [id: string]
   'update:markdown': [value: string]
 }>()
 
@@ -23,6 +19,11 @@ const contentRef = ref<HTMLElement>()
 const showWarn = ref(false)
 
 const settings = computed(() => getResumeSettings(props.markdown))
+
+// Dynamic font size: starts at the frontmatter value, then fitToOnePage
+// updates it after auto-fit so dot-leader counts in the DOM match what the
+// PDF export will produce. 0 means "use frontmatter setting".
+const effectiveFontSize = ref(0)
 
 // Map agent keys to section header text for inline indicators
 const refiningSections = computed(() => {
@@ -39,100 +40,6 @@ const refiningSections = computed(() => {
   }
   return sections
 })
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function makeTooltip(acceptLabel: string = '&#10003;', denyLabel: string = '&#10005;'): string {
-  return `<span class="sug-tooltip"><button class="sug-accept" title="Accept">${acceptLabel}</button><button class="sug-deny" title="Dismiss">${denyLabel}</button></span>`
-}
-
-function injectSuggestion(html: string, sug: Suggestion): string {
-  const escaped = escapeHtml(sug.content)
-  const titleAttr = `title="${escapeHtml(sug.context)}"`
-
-  // --- REMOVE: wrap existing text in red strikethrough ---
-  if (sug.type === 'remove') {
-    const tooltip = makeTooltip('&#10005;', '&#8630;')  // ✕ to confirm remove, ↶ to keep
-    const contentToFind = escapeHtml(sug.content.replace(/^- /, '').trim())
-    // Try to find and wrap the exact text in the HTML
-    const textRegex = new RegExp(`(<li>)([^<]*${escapeRegex(contentToFind)}[^<]*)(<\\/li>)`, 'i')
-    const match = html.match(textRegex)
-    if (match) {
-      html = html.replace(textRegex, `<li class="suggestion-remove" data-sug-id="${sug.id}" ${titleAttr}>$2${tooltip}</li>`)
-    }
-    return html
-  }
-
-  // --- REPLACE: show old as strikethrough + new as green ---
-  if (sug.type === 'replace' && sug.old_content) {
-    const tooltip = makeTooltip()
-    const oldText = escapeHtml(sug.old_content.replace(/^- /, '').trim())
-    const textRegex = new RegExp(`(<li>)([^<]*${escapeRegex(oldText)}[^<]*)(<\\/li>)`, 'i')
-    const match = html.match(textRegex)
-    if (match) {
-      const replacement = `<li class="suggestion-replace" data-sug-id="${sug.id}" ${titleAttr}><span class="sug-old">$2</span> <span class="sug-new">${escaped}</span>${tooltip}</li>`
-      html = html.replace(textRegex, replacement)
-    }
-    return html
-  }
-
-  // --- ADD: skill ---
-  const tooltip = makeTooltip()
-  if (sug.section === 'Skills') {
-    const sugHtml = `<span class="suggestion" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</span>`
-    const category = sug.skill_category
-
-    if (category) {
-      // Target the specific category paragraph containing **Category:**
-      const catEscaped = escapeRegex(category)
-      const catRegex = new RegExp(
-        `(<p><strong>${catEscaped}:<\\/strong>\\s*)(.*?)(<\\/p>)`,
-        'i'
-      )
-      const catMatch = html.match(catRegex)
-      if (catMatch) {
-        html = html.replace(catRegex, `$1$2, ${sugHtml}$3`)
-      }
-    }
-
-    // Fallback: append to the last </p> in the Skills section
-    if (!category || !html.match(new RegExp(escapeRegex(category), 'i'))) {
-      const skillsRegex = /(<h1>Skills<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
-      html = html.replace(skillsRegex, (_match, h1, content, next) => {
-        return h1 + content.replace(/<\/p>(?![\s\S]*<\/p>)/, ', ' + sugHtml + '</p>') + next
-      })
-    }
-  } else if (sug.type === 'project' && sug.section === 'Projects') {
-    // --- ADD: new project entry ---
-    const projHtml = `<div class="suggestion suggestion-project" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</div>`
-    const projRegex = /(<h1>Projects<\/h1>)([\s\S]*?)(<h1>|<hr|$)/i
-    html = html.replace(projRegex, (_match, h1, content, next) => {
-      return h1 + content + projHtml + next
-    })
-  } else {
-    // --- ADD: bullet ---
-    const sugLi = `<li class="suggestion" data-sug-id="${sug.id}" ${titleAttr}>${escaped}${tooltip}</li>`
-    const parts = sug.section.split(':')
-    const entryKey = parts[1] || ''
-    if (entryKey) {
-      const keyEscaped = escapeRegex(entryKey)
-      const entryRegex = new RegExp(
-        `(<strong>[^<]*${keyEscaped}[^<]*<\\/strong>[\\s\\S]*?<ul>)([\\s\\S]*?)(<\\/ul>)`,
-        'i'
-      )
-      html = html.replace(entryRegex, (_match, before, items, close) => {
-        return before + items + sugLi + close
-      })
-    }
-  }
-  return html
-}
 
 // Build a set of normalized text lines from rendered HTML for diffing
 function extractTextLines(html: string): Set<string> {
@@ -179,7 +86,8 @@ function highlightChanges(tailoredHtml: string, originalHtml: string): string {
 }
 
 const renderedHtml = computed(() => {
-  let html = renderResume(props.markdown)
+  const fontSizePx = effectiveFontSize.value || settings.value.fontSize
+  let html = renderResume(props.markdown, { fontSizePx, pageMode: props.pageMode })
 
   // Highlight content that differs from original
   if (props.originalMarkdown && props.originalMarkdown !== props.markdown) {
@@ -191,12 +99,6 @@ const renderedHtml = computed(() => {
   for (const section of refiningSections.value) {
     const regex = new RegExp(`(<h1>)(${section})(</h1>)`, 'i')
     html = html.replace(regex, `$1$2 <span class="refining-badge">refining...</span>$3`)
-  }
-  // Inject suggestion content
-  if (props.suggestions?.length) {
-    for (const sug of props.suggestions) {
-      html = injectSuggestion(html, sug)
-    }
   }
   return html
 })
@@ -233,6 +135,7 @@ function fitToOnePage() {
     }
     if (el.scrollHeight > target + 1) {
       showWarn.value = true
+      effectiveFontSize.value = size
       return
     }
 
@@ -247,6 +150,8 @@ function fitToOnePage() {
         break
       }
     }
+    // Publish the auto-fitted size so renderResume re-injects the right dot count.
+    effectiveFontSize.value = size
 
     // Phase 3: binary search for the largest line-height that doesn't overflow
     // Use scrollHeight vs clientHeight as the only overflow check (position-independent)
@@ -282,6 +187,7 @@ function applyMultiPageStyles() {
   const stdLh = settings.value.lineSpacing || 1.4
   document.documentElement.style.setProperty('--base-font-size', stdSize + 'px')
   document.documentElement.style.setProperty('--line-height', String(stdLh))
+  effectiveFontSize.value = stdSize
 }
 
 /** Force standard sizing before print when in multi-page mode. */
@@ -293,26 +199,6 @@ function ensureMultiPageSizingForPrint() {
 
 defineExpose({ ensureMultiPageSizingForPrint })
 
-function handleSuggestionClick(e: Event) {
-  const target = e.target as HTMLElement
-  const sugEl = target.closest('[data-sug-id]')
-  if (!sugEl) return
-  const id = sugEl.getAttribute('data-sug-id')
-  if (!id) return
-  if (target.classList.contains('sug-accept')) {
-    emit('accept-suggestion', id)
-  } else if (target.classList.contains('sug-deny')) {
-    emit('deny-suggestion', id)
-  }
-}
-
-onMounted(() => {
-  contentRef.value?.addEventListener('click', handleSuggestionClick)
-})
-
-onUnmounted(() => {
-  contentRef.value?.removeEventListener('click', handleSuggestionClick)
-})
 </script>
 
 <template>
