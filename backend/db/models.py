@@ -56,7 +56,7 @@ class TailorRequest(BaseModel):
     job_description: str
     resume_override: str | None = None
     gemini_api_key: str | None = None
-    seniority_level: str | None = None
+    role_level: str | None = None
     page_mode: str = "single"
     analyze_only: bool = False
     stealth_mode: bool | None = None
@@ -71,7 +71,7 @@ class ExecuteRequest(BaseModel):
     job_description: str
     resume_override: str | None = None
     gemini_api_key: str | None = None
-    seniority_level: str | None = None
+    role_level: str | None = None
     plan: dict
     stealth_mode: bool | None = None
     max_projects: int | None = None
@@ -111,4 +111,10 @@ class SavedCVResponse(BaseModel):
 
 
 class ExportRequest(BaseModel):
-    markdown: str
+    html: str
+    font_size: float = 11.0
+    line_spacing: float = 1.4
+    page_mode: str = "single"
+    filename: str = "resume.pdf"
+    document_title: str | None = None
+    document_lang: str = "en"

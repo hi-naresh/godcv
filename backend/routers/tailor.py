@@ -40,6 +40,24 @@ def _resolve_tailoring_prefs(request, profile: dict | None) -> dict:
     }
 
 
+SECTION_ORDER_GRADUATE = [
+    "Summary", "Education", "Skills", "Experience",
+    "Projects", "Volunteering and Interests",
+]
+SECTION_ORDER_NON_GRADUATE = [
+    "Summary", "Skills", "Experience", "Projects",
+    "Education", "Volunteering and Interests",
+]
+
+
+def _section_order_for(role_level: str | None) -> list[str]:
+    """Backend-deterministic section order. Defaults to non-graduate when
+    role_level is unknown (safer for the 'ideal CV' framing)."""
+    if role_level == "graduate":
+        return SECTION_ORDER_GRADUATE
+    return SECTION_ORDER_NON_GRADUATE
+
+
 @router.post("")
 async def tailor_resume(request: TailorRequest):
     # Resolve API key
@@ -85,12 +103,23 @@ async def tailor_resume(request: TailorRequest):
             page_mode = request.page_mode or (profile.get("page_mode", "single") if profile else "single")
             prefs = _resolve_tailoring_prefs(request, profile)
             stealth_mode = prefs["stealth_mode"]
+
+            # role_level: explicit request override → JD-detect fallback.
+            # Used for both prompt context and the deterministic section_order.
+            from backend.services.role_level import detect_role_level
+            role_level = request.role_level or detect_role_level(job_description)
+
             # NOTE: agent-side kwarg `fabrication_mode=` and dispatch dict key
             # `call["fabrication_mode"]` are renamed in Task 9 alongside the
             # agents/fabrication.py → agents/stealth.py file rename.
-            plan = await orchestrator.analyze(resume_md, job_description, insights, request.seniority_level, page_mode, entry_keys,
-                                              fabrication_mode=prefs["stealth_mode"],
-                                              max_projects=prefs["max_projects"])
+            plan = await orchestrator.analyze(
+                resume_md, job_description, insights,
+                role_level=role_level,
+                page_mode=page_mode,
+                entry_keys=entry_keys,
+                fabrication_mode=prefs["stealth_mode"],
+                max_projects=prefs["max_projects"],
+            )
             tool_calls = plan.get("tool_calls", [])
             sections_unchanged = plan.get("sections_unchanged", [])
 
@@ -153,7 +182,7 @@ async def tailor_resume(request: TailorRequest):
             modified_sections = result["modified_sections"] if result else {}
             modified_entries = result["modified_entries"] if result else {}
             excluded_entries = result.get("excluded_entries", set()) if result else set()
-            section_order = plan.get("section_order")
+            section_order = _section_order_for(role_level)
             tailored_md = assemble_resume(parsed, modified_sections, modified_entries, section_order, excluded_entries)
 
             sections_modified = list(modified_sections.keys()) + [f"experience:{k}" for k in modified_entries]
@@ -248,6 +277,7 @@ async def execute_tailoring(request: ExecuteRequest):
             sections_unchanged = plan.get("sections_unchanged", [])
             prefs = _resolve_tailoring_prefs(request, profile)
             stealth_mode = prefs["stealth_mode"]
+            role_level = request.role_level
 
             # Phase 1: Parse resume
             yield _sse_event("status", {"phase": "parsing", "message": "Parsing resume..."})
@@ -287,7 +317,7 @@ async def execute_tailoring(request: ExecuteRequest):
             modified_sections = result["modified_sections"] if result else {}
             modified_entries = result["modified_entries"] if result else {}
             excluded_entries = result.get("excluded_entries", set()) if result else set()
-            section_order = plan.get("section_order")
+            section_order = _section_order_for(role_level)
             tailored_md = assemble_resume(parsed, modified_sections, modified_entries, section_order, excluded_entries)
 
             sections_modified = list(modified_sections.keys()) + [f"experience:{k}" for k in modified_entries]
