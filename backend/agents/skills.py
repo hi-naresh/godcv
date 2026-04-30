@@ -1,5 +1,5 @@
 from backend.services.gemini import GeminiClient
-from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
+from backend.agents.stealth import STEALTH_ALLOWED_BLOCK, STRICT_BLOCK
 
 
 class SkillsAgent:
@@ -10,16 +10,18 @@ class SkillsAgent:
                   job_description: str, extra: dict = None) -> str:
         promote = extra.get("promote", []) if extra else []
         demote = extra.get("demote", []) if extra else []
-        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
-        if fabrication_mode:
+        stealth_mode = extra.get("stealth_mode", False) if extra else False
+        if stealth_mode:
             truthfulness_rules = (
-                "4. " + FABRICATION_ALLOWED_BLOCK +
+                "4. " + STEALTH_ALLOWED_BLOCK +
                 "5. You may add up to 3 plausible JD-relevant skills consistent with the candidate's stack."
             )
         else:
+            # STRICT_BLOCK covers no-fabrication; "do NOT remove" stays as a
+            # skills-specific constraint.
             truthfulness_rules = (
                 "4. Do NOT remove any existing skills\n"
-                "5. Do NOT fabricate skills the candidate doesn't have"
+                "5. " + STRICT_BLOCK
             )
 
         prompt = f"""You are a resume skills section optimizer. Reorder this skills section so the most JD-relevant skills jump out first.

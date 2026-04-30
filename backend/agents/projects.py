@@ -1,4 +1,4 @@
-from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
+from backend.agents.stealth import STEALTH_ALLOWED_BLOCK, STRICT_BLOCK
 from backend.services.gemini import GeminiClient
 
 
@@ -13,7 +13,7 @@ class ProjectsAgent:
         candidate_facts = extra.get("candidate_facts", "") if extra else ""
         generate_new = extra.get("generate_projects", False) if extra else False
         candidate_skills = extra.get("candidate_skills", "") if extra else ""
-        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        stealth_mode = extra.get("stealth_mode", False) if extra else False
         max_bullets = extra.get("max_bullets_per_entry", 3) if extra else 3
         require_quant = extra.get("require_quantified_bullets", True) if extra else True
 
@@ -45,9 +45,9 @@ class ProjectsAgent:
             tech_stack_rule = """- This is NOT a technical/CS role — do NOT add "| Stack -" lines
 - Focus on methodologies, outcomes, and domain-relevant details"""
 
-        if fabrication_mode:
+        if stealth_mode:
             dont_fabricate_block = (
-                FABRICATION_ALLOWED_BLOCK +
+                STEALTH_ALLOWED_BLOCK +
                 "Per-project rules:\n"
                 "- You may upgrade existing project metrics to plausible higher values\n"
                 "- You may add capabilities that are plausibly adjacent to what the project actually did\n"
@@ -55,34 +55,21 @@ class ProjectsAgent:
             )
         else:
             dont_fabricate_block = (
-                "4. DON'T FABRICATE: Never add capabilities, metrics, or technologies that weren't part of the project.\n"
+                "4. " + STRICT_BLOCK +
                 "   Reframing is fine (\"built data pipeline\" → \"engineered scalable research pipeline processing X records\").\n"
                 "   Inventing is not (\"built chatbot\" → \"conducted cutting-edge ML research\" — this is a lie)."
             )
 
         generation_rule = ""
-        if generate_new:
-            if fabrication_mode:
-                generation_rule = f"""
+        if generate_new and stealth_mode:
+            # generate_projects is stealth-only. Strict mode never reaches here
+            # (orchestrator forbids the flag, and Task 10 strips it server-side).
+            generation_rule = f"""
 GENERATE NEW PROJECTS:
 Generate 1-2 NEW project entries demonstrating JD requirements existing projects don't cover.
 Rules:
 - Adjacent technologies the candidate hasn't directly used but could plausibly learn are acceptable
 - Must be realistic — something they would actually build
-- No fake URLs — use "at University" or "Personal" after the name
-- Place after real projects
-
-CANDIDATE'S KNOWN SKILLS:
-{candidate_skills}
-"""
-            else:
-                generation_rule = f"""
-GENERATE NEW PROJECTS:
-Generate 1-2 NEW project entries based on the candidate's real skills and coursework that fill JD gaps.
-Rules:
-- Must use ONLY technologies the candidate already knows
-- Must be realistic — something they would actually build
-- Must directly demonstrate a JD requirement existing projects don't cover
 - No fake URLs — use "at University" or "Personal" after the name
 - Place after real projects
 

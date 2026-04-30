@@ -1,5 +1,5 @@
 from backend.services.gemini import GeminiClient
-from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
+from backend.agents.stealth import STEALTH_ALLOWED_BLOCK, STRICT_BLOCK
 
 
 class EducationAgent:
@@ -8,18 +8,18 @@ class EducationAgent:
 
     async def run(self, section_content: str, instructions: str,
                   job_description: str, extra: dict = None) -> str:
-        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
-        if fabrication_mode:
+        stealth_mode = extra.get("stealth_mode", False) if extra else False
+        if stealth_mode:
             coursework_rules = (
-                FABRICATION_ALLOWED_BLOCK +
+                STEALTH_ALLOWED_BLOCK +
                 "- You may add up to 5 plausible JD-relevant coursework items consistent with the degree program\n"
                 "- Degree names, university names, and dates remain UNCHANGED"
             )
         else:
             coursework_rules = (
-                "- You may add 1-2 relevant coursework items if they are clearly implied by the degree (e.g., an MSc in AI clearly includes \"Machine Learning\")\n"
-                "- Do NOT fabricate courses that wouldn't exist in the program\n"
-                "- Do NOT remove any courses — only reorder and optionally rephrase"
+                STRICT_BLOCK +
+                "- Do NOT remove any courses — only reorder and optionally rephrase\n"
+                "- Degree names, university names, and dates remain UNCHANGED"
             )
         prompt = f"""You are a resume education section optimizer. Refine the coursework and emphasis in this education section to better match the job description.
 

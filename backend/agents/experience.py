@@ -1,5 +1,5 @@
 from backend.services.gemini import GeminiClient
-from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
+from backend.agents.stealth import STEALTH_ALLOWED_BLOCK, STRICT_BLOCK
 
 
 class ExperienceAgent:
@@ -28,7 +28,7 @@ class ExperienceAgent:
 - Led cross-functional initiative reducing customer churn by 15% through data-driven retention strategies.
 - Designed operational workflow that cut processing time by 40%, saving $200K annually."""
 
-        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
+        stealth_mode = extra.get("stealth_mode", False) if extra else False
         max_bullets = extra.get("max_bullets_per_entry", 3) if extra else 3
         require_quant = extra.get("require_quantified_bullets", True) if extra else True
 
@@ -50,9 +50,9 @@ class ExperienceAgent:
         else:
             quantified_rule = "- Prefer quantified results when available, but qualitative outcomes are acceptable"
 
-        if fabrication_mode:
+        if stealth_mode:
             cannot_do_block = (
-                FABRICATION_ALLOWED_BLOCK +
+                STEALTH_ALLOWED_BLOCK +
                 "Per-entry constraints (still apply):\n"
                 "- Do NOT change the job title, company name, or dates (first bold line stays UNCHANGED)\n"
                 "- You may invent at most 1 plausible bullet per entry\n"
@@ -61,9 +61,9 @@ class ExperienceAgent:
             )
         else:
             cannot_do_block = (
-                "WHAT YOU CANNOT DO:\n"
+                STRICT_BLOCK +
+                "WHAT YOU CANNOT DO (in addition):\n"
                 "- Change the job title, company name, or dates (first bold line stays UNCHANGED)\n"
-                "- Fabricate achievements, metrics, or technologies you didn't use\n"
                 "- Add technologies to Stack Used that weren't part of this specific role\n"
                 "- Remove quantified achievements (numbers, percentages) — they are real"
             )

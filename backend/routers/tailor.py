@@ -109,15 +109,12 @@ async def tailor_resume(request: TailorRequest):
             from backend.services.role_level import detect_role_level
             role_level = request.role_level or detect_role_level(job_description)
 
-            # NOTE: agent-side kwarg `fabrication_mode=` and dispatch dict key
-            # `call["fabrication_mode"]` are renamed in Task 9 alongside the
-            # agents/fabrication.py → agents/stealth.py file rename.
             plan = await orchestrator.analyze(
                 resume_md, job_description, insights,
                 role_level=role_level,
                 page_mode=page_mode,
                 entry_keys=entry_keys,
-                fabrication_mode=prefs["stealth_mode"],
+                stealth_mode=prefs["stealth_mode"],
                 max_projects=prefs["max_projects"],
             )
             tool_calls = plan.get("tool_calls", [])
@@ -152,7 +149,7 @@ async def tailor_resume(request: TailorRequest):
             for call in tool_calls:
                 call["role_type"] = role_type
                 call["candidate_facts"] = candidate_facts
-                call["fabrication_mode"] = prefs["stealth_mode"]
+                call["stealth_mode"] = prefs["stealth_mode"]
                 call["max_bullets_per_entry"] = prefs["max_bullets_per_entry"]
                 call["require_quantified_bullets"] = prefs["require_quantified_bullets"]
 
@@ -290,7 +287,7 @@ async def execute_tailoring(request: ExecuteRequest):
             for call in tool_calls:
                 call["role_type"] = role_type
                 call["candidate_facts"] = candidate_facts
-                call["fabrication_mode"] = prefs["stealth_mode"]
+                call["stealth_mode"] = prefs["stealth_mode"]
                 call["max_bullets_per_entry"] = prefs["max_bullets_per_entry"]
                 call["require_quantified_bullets"] = prefs["require_quantified_bullets"]
 

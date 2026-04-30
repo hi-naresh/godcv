@@ -1,5 +1,5 @@
 from backend.services.gemini import GeminiClient
-from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
+from backend.agents.stealth import STEALTH_ALLOWED_BLOCK, STRICT_BLOCK
 
 
 class OrchestratorAgent:
@@ -14,7 +14,7 @@ class OrchestratorAgent:
         role_level: str | None = None,
         page_mode: str = "single",
         entry_keys: dict | None = None,
-        fabrication_mode: bool = False,
+        stealth_mode: bool = False,
         max_projects: int = 4,
     ) -> dict:
         """Analyze job description against resume and produce a tool_calls plan."""
@@ -46,13 +46,7 @@ class OrchestratorAgent:
         from backend.services.candidate_profile import build_candidate_profile
         candidate_facts = build_candidate_profile(resume_markdown)
 
-        if fabrication_mode:
-            fabrication_notice = FABRICATION_ALLOWED_BLOCK
-        else:
-            fabrication_notice = (
-                "TRUTHFULNESS:\n"
-                "DO NOT fabricate professional work experience or company names.\n"
-            )
+        stealth_notice = STEALTH_ALLOWED_BLOCK if stealth_mode else STRICT_BLOCK
 
         projects_count_rule = (
             f"PROJECTS COUNT: Always select up to {max_projects} projects total — rank by JD relevance, "
@@ -61,15 +55,14 @@ class OrchestratorAgent:
             f"(so existing projects must be reduced accordingly)."
         )
 
-        if fabrication_mode:
+        if stealth_mode:
             generate_projects_rule = (
                 "    1-2 new project entries demonstrating JD-relevant skills. "
                 "Adjacent technologies the candidate hasn't directly used but could plausibly learn are acceptable.\n"
             )
         else:
             generate_projects_rule = (
-                "    1-2 new project entries based on the candidate's skills that fill JD gaps.\n"
-                "    When using generate_projects, also set \"candidate_skills\" to a summary of skills and coursework.\n"
+                "    NEVER set generate_projects in strict mode — fabricated projects are forbidden.\n"
             )
 
         prompt = f"""You are a resume tailoring orchestrator. Analyze the job description and the resume below.
@@ -116,7 +109,7 @@ AVAILABLE AGENTS AND ACTIONS:
   - Only changes coursework lists, NOT degrees/universities/dates
 
 DO NOT use agent: "publications" — it is not available.
-{fabrication_notice}
+{stealth_notice}
 
 ENTRY SELECTION RULES:
 - You MUST provide an action for EVERY experience and project entry

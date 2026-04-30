@@ -1,5 +1,5 @@
 from backend.services.gemini import GeminiClient
-from backend.agents.fabrication import FABRICATION_ALLOWED_BLOCK
+from backend.agents.stealth import STEALTH_ALLOWED_BLOCK, STRICT_BLOCK
 
 
 class SummaryAgent:
@@ -9,12 +9,8 @@ class SummaryAgent:
     async def run(self, section_content: str, instructions: str,
                   job_description: str, extra: dict = None) -> str:
         candidate_facts = extra.get("candidate_facts", "") if extra else ""
-        fabrication_mode = extra.get("fabrication_mode", False) if extra else False
-        truthfulness_rule = (
-            FABRICATION_ALLOWED_BLOCK
-            if fabrication_mode
-            else "- Maintain truthfulness — only mention skills and experience the candidate actually has"
-        )
+        stealth_mode = extra.get("stealth_mode", False) if extra else False
+        truthfulness_rule = STEALTH_ALLOWED_BLOCK if stealth_mode else STRICT_BLOCK
 
         prompt = f"""You are a resume summary writer. Craft a compelling 2-3 sentence summary that positions this candidate as a strong fit for the target role.
 
