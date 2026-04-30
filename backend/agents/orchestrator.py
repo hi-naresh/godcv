@@ -11,7 +11,7 @@ class OrchestratorAgent:
         resume_markdown: str,
         job_description: str,
         role_insights: list[dict] | None = None,
-        seniority_level: str | None = None,
+        role_level: str | None = None,
         page_mode: str = "single",
         entry_keys: dict | None = None,
         fabrication_mode: bool = False,
@@ -27,26 +27,21 @@ class OrchestratorAgent:
                     f"strongest points: {', '.join(insight.get('strongest_points', [])[:5])}\n"
                 )
 
-        seniority_context = ""
-        if seniority_level:
-            seniority_guidance = {
-                "graduate": "Target is a GRADUATE/ENTRY-LEVEL role. Emphasize coursework, projects, internships, and eagerness to learn. Tone down leadership language.",
-                "junior": "Target is a JUNIOR role. Emphasize hands-on technical work, learning ability, and projects. Keep language confident but not senior.",
-                "mid-level": "Target is a MID-LEVEL role. Balance technical depth with some ownership. Show progression and impact.",
-                "senior": "Target is a SENIOR role. Emphasize leadership, architecture decisions, mentoring, and measurable business impact.",
-                "lead": "Target is a LEAD/MANAGEMENT role. Emphasize team leadership, cross-functional work, technical strategy, and people management.",
-                "principal": "Target is a PRINCIPAL/STAFF role. Emphasize org-wide impact, technical vision, and strategic thinking.",
+        role_level_context = ""
+        if role_level:
+            role_level_guidance = {
+                "graduate": (
+                    "Target is a GRADUATE-level role. Lead with education, coursework, "
+                    "internships, and projects. Tone: capable and eager. Avoid leadership "
+                    "or architectural claims."
+                ),
+                "non-graduate": (
+                    "Target is a non-graduate professional role. Lead with experience and "
+                    "impact. Show ownership, scale, and measurable outcomes appropriate to "
+                    "the seniority signaled in the JD (mid-level vs senior vs lead vs principal)."
+                ),
             }
-            seniority_context = f"\nSENIORITY CONTEXT:\n{seniority_guidance.get(seniority_level, '')}\n"
-
-        # Determine section order example based on seniority
-        # Note: Publications is optional — only include in section_order if you're creating one
-        if seniority_level in ("graduate", "junior"):
-            order_example = '["Summary", "Education", "Skills", "Experience", "Projects", "Publications (optional)", "Volunteering and Interests"]'
-            order_rule = "For graduate/junior roles: Education MUST come BEFORE Experience and Skills."
-        else:
-            order_example = '["Summary", "Experience", "Skills", "Education", "Projects", "Publications (optional)", "Volunteering and Interests"]'
-            order_rule = "For mid-level+ roles: Experience comes first, then Skills, then Education."
+            role_level_context = f"\nROLE LEVEL CONTEXT:\n{role_level_guidance.get(role_level, '')}\n"
 
         from backend.services.candidate_profile import build_candidate_profile
         candidate_facts = build_candidate_profile(resume_markdown)
@@ -84,7 +79,7 @@ CANDIDATE FACTS (pre-computed — trust these, do NOT re-interpret dates yoursel
 
 Use the CANDIDATE FACTS above as ground truth. If it says a degree is COMPLETED, it IS completed — do not contradict this anywhere in your response (analysis, scoring, or gap_suggestions).
 
-STEP 1: Extract the job title, company name, and position level from the JD.
+STEP 1: Extract the job title, company name, and role level from the JD.
 STEP 2: Decide which resume sections need modification and which should stay unchanged.
 STEP 3: For each section that needs changes, specify what agent should handle it and what instructions to give.
 
@@ -94,7 +89,6 @@ IMPORTANT RULES:
 - The candidate's REAL work and achievements must be preserved — you refine how they're PRESENTED, not what they did
 - For Experience: the company, role, and core work are FIXED truths. What changes is EMPHASIS, KEYWORDS, and FRAMING
 - For Projects: these demonstrate capability. Rewrite bullets to highlight JD-relevant skills demonstrated
-- SECTION ORDER: {order_rule}
 
 STRATEGY — Think like a recruiter reading this resume for the JD:
 1. What keywords/skills does the JD REQUIRE? Map each to the resume
@@ -130,7 +124,7 @@ ENTRY SELECTION RULES:
 - DEFAULT to "rewrite" — only use "include" if the entry is already perfectly aligned
 - Prefer entries most relevant to the job description
 - When excluding, drop the least relevant entries first
-{insights_context}{seniority_context}
+{insights_context}{role_level_context}
 PAGE MODE: {"MULTI-PAGE — Include ALL experience entries. No exclusions for space. Agents can add richer content." if page_mode == "multi" else "SINGLE-PAGE — Select experience entries to fit one page (typically 2-3)."}
 {projects_count_rule}
 {self._entry_keys_context(entry_keys)}
@@ -161,7 +155,7 @@ Respond with a JSON object:
   "analysis": {{
     "job_title": "<exact role title from JD, e.g. Graduate Data Engineer>",
     "company": "<company name from JD, e.g. Capgemini>",
-    "position_level": "<graduate|junior|mid-level|senior|lead|principal>",
+    "role_level": "<graduate|non-graduate>",
     "role_type": "<ai_ml|backend|data_eng|frontend|devops|leadership|fullstack>",
     "key_requirements": ["<short phrase>"],
     "matched_strengths": ["<short phrase>"]
@@ -170,7 +164,6 @@ Respond with a JSON object:
     {{"agent": "<name>", "action": "<rewrite|reorder|include|exclude|keep>", "entry": "<for experience/projects>", "instructions": "<1-2 sentences>", "promote": ["<items>"], "demote": ["<items>"]}}
   ],
   "sections_unchanged": ["<section names>"],
-  "section_order": {order_example},
   "scoring": {{
     "before": {{
       "keyword_match": "<0-100>",
