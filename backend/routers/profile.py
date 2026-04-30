@@ -48,7 +48,7 @@ async def create_profile(data: ProfileCreate):
         master_resume=data.master_resume,
         gemini_api_key=data.gemini_api_key,
         page_mode=data.page_mode,
-        fabrication_mode=data.fabrication_mode,
+        stealth_mode=data.stealth_mode,
         max_projects=data.max_projects,
         max_bullets_per_entry=data.max_bullets_per_entry,
         require_quantified_bullets=data.require_quantified_bullets,

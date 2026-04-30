@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
@@ -7,18 +7,20 @@ class ProfileCreate(BaseModel):
     master_resume: str
     gemini_api_key: str = ""
     page_mode: str = "single"
-    fabrication_mode: bool = False
+    stealth_mode: bool = False
     max_projects: int = 4
     max_bullets_per_entry: int = 3
     require_quantified_bullets: bool = True
 
 
 class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     master_resume: str | None = None
     gemini_api_key: str | None = None
     page_mode: str | None = None
-    fabrication_mode: bool | None = None
+    stealth_mode: bool | None = None
     max_projects: int | None = None
     max_bullets_per_entry: int | None = None
     require_quantified_bullets: bool | None = None
@@ -30,7 +32,7 @@ class ProfileResponse(BaseModel):
     master_resume: str
     gemini_api_key: str
     page_mode: str
-    fabrication_mode: bool
+    stealth_mode: bool
     max_projects: int
     max_bullets_per_entry: int
     require_quantified_bullets: bool
@@ -49,25 +51,29 @@ class RoleInsightResponse(BaseModel):
 
 
 class TailorRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     job_description: str
     resume_override: str | None = None
     gemini_api_key: str | None = None
     seniority_level: str | None = None
     page_mode: str = "single"
     analyze_only: bool = False
-    fabrication_mode: bool | None = None
+    stealth_mode: bool | None = None
     max_projects: int | None = None
     max_bullets_per_entry: int | None = None
     require_quantified_bullets: bool | None = None
 
 
 class ExecuteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     job_description: str
     resume_override: str | None = None
     gemini_api_key: str | None = None
     seniority_level: str | None = None
     plan: dict
-    fabrication_mode: bool | None = None
+    stealth_mode: bool | None = None
     max_projects: int | None = None
     max_bullets_per_entry: int | None = None
     require_quantified_bullets: bool | None = None
