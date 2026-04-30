@@ -38,7 +38,7 @@ export interface ATSResult {
 export interface JobAnalysis {
   job_title: string
   company: string
-  position_level: string
+  role_level: string
   role_type: string
   key_requirements: string[]
   matched_strengths: string[]
@@ -61,6 +61,7 @@ export interface JobState {
   title: string
   jobDescription: string
   roleLevel: RoleLevel | null
+  stealthOverride: boolean | null  // null = use profile default
   tailoringStatus: 'idle' | 'analyzing' | 'analyzed' | 'running' | 'done' | 'error'
   statusMessage: string | null
   tailoringPlan: ToolCall[] | null
@@ -89,6 +90,7 @@ export const useEditorStore = defineStore('editor', () => {
       title: '',
       jobDescription: '',
       roleLevel: null,
+      stealthOverride: null,
       tailoringStatus: 'idle',
       statusMessage: null,
       tailoringPlan: null,

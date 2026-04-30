@@ -32,6 +32,7 @@ export function useTailor() {
     if (apiKey) body.gemini_api_key = apiKey
     if (resumeOverride) body.resume_override = resumeOverride
     if (job.roleLevel) body.role_level = job.roleLevel
+    if (job.stealthOverride !== null) body.stealth_mode = job.stealthOverride
     if (analyzeOnly) body.analyze_only = true
     body.page_mode = store.pageMode
 
@@ -160,7 +161,7 @@ export function useTailor() {
           updates.analysis = {
             job_title: (analysis.job_title as string) || '',
             company: (analysis.company as string) || '',
-            position_level: (analysis.position_level as string) || '',
+            role_level: (analysis.role_level as string) || '',
             role_type: (analysis.role_type as string) || '',
             key_requirements: (analysis.key_requirements as string[]) || [],
             matched_strengths: (analysis.matched_strengths as string[]) || [],
@@ -258,6 +259,7 @@ export function useTailor() {
       if (apiKey) body.gemini_api_key = apiKey
       if (resumeOverride) body.resume_override = resumeOverride
       if (job.roleLevel) body.role_level = job.roleLevel
+      if (job.stealthOverride !== null) body.stealth_mode = job.stealthOverride
 
       fetch('/api/tailor/execute', {
         method: 'POST',

@@ -2,6 +2,9 @@
 import { computed } from 'vue'
 import type { RoleLevel } from '../composables/useRoleLevel'
 import type { JobState } from '../stores/editor'
+import { useEditorStore } from '../stores/editor'
+
+const store = useEditorStore()
 
 const props = defineProps<{ job: JobState }>()
 
@@ -9,6 +12,7 @@ const emit = defineEmits<{
   'update:title': [value: string]
   'update:jobDescription': [value: string]
   'update:roleLevel': [value: RoleLevel | null]
+  'update:stealthOverride': [value: boolean]
   remove: []
 }>()
 
@@ -26,15 +30,10 @@ const fitLevel = computed(() => {
 
 const fitWarning = computed(() => {
   if (!props.job.analysis || !props.job.scoring?.before) return null
-  const level = props.job.analysis.position_level
   const score = props.job.scoring.before.overall_fit
   const fit = props.job.scoring.before.experience_fit
-  const seniorLevels = ['senior', 'lead', 'principal']
-  if (score < 40 && seniorLevels.includes(level)) {
-    return `This is a ${level}-level role. ${fit}`
-  }
-  if (score < 30) {
-    return `Low fit (${score}%). ${fit}`
+  if (score < 40) {
+    return `Low fit (${score}/100) — review the gap list before tailoring. ${fit}`
   }
   return null
 })
@@ -68,7 +67,7 @@ const fitWarning = computed(() => {
     <div v-if="job.analysis" class="analysis-card">
       <div class="analysis-header">
         <span class="analysis-company">{{ job.analysis.company }}</span>
-        <span class="analysis-level" :class="job.analysis.position_level">{{ job.analysis.position_level }}</span>
+        <span class="analysis-level" :class="job.analysis.role_level">{{ job.analysis.role_level === 'graduate' ? 'Graduate' : 'Non-Graduate' }}</span>
       </div>
       <div class="analysis-role">{{ job.analysis.job_title }}</div>
       <div v-if="job.scoring?.before" class="analysis-fit" :class="fitLevel">
@@ -101,6 +100,15 @@ const fitWarning = computed(() => {
         @click="$emit('update:roleLevel', 'non-graduate')"
       >Non-Graduate</button>
     </div>
+
+    <label v-if="job.analysis" class="stealth-toggle">
+      <input
+        type="checkbox"
+        :checked="job.stealthOverride ?? store.profile?.stealth_mode ?? false"
+        @change="$emit('update:stealthOverride', ($event.target as HTMLInputElement).checked)"
+      />
+      <span>Stealth: {{ (job.stealthOverride ?? store.profile?.stealth_mode) ? 'ON' : 'OFF' }}</span>
+    </label>
   </div>
 </template>
 
@@ -180,10 +188,8 @@ const fitWarning = computed(() => {
   font-size: 0.68rem; font-weight: 700; padding: 1px 7px; border-radius: 4px;
   text-transform: uppercase; letter-spacing: 0.3px;
 }
-.analysis-level.graduate, .analysis-level.junior { background: #e6f4ea; color: #1a7f37; }
-.analysis-level.mid-level { background: #e8f0fe; color: #1a73e8; }
-.analysis-level.senior { background: #fef3e2; color: #b45309; }
-.analysis-level.lead, .analysis-level.principal { background: #fce8e6; color: #c5221f; }
+.analysis-level.graduate { background: #e6f4ea; color: #1a7f37; }
+.analysis-level.non-graduate { background: #e8f0fe; color: #1a73e8; }
 .analysis-role {
   font-size: 0.8rem; color: #555; font-weight: 500;
 }
@@ -224,4 +230,11 @@ const fitWarning = computed(() => {
 .gaps-list li {
   font-size: 0.72rem; color: #8b5e34; line-height: 1.35; margin-bottom: 1px;
 }
+
+.stealth-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; color: #666; cursor: pointer;
+  align-self: flex-start;
+}
+.stealth-toggle input { margin: 0; cursor: pointer; }
 </style>

@@ -175,6 +175,7 @@ function discardChanges() {
           @update:title="store.updateJob(activeJob!.id, { title: $event })"
           @update:job-description="store.updateJob(activeJob!.id, { jobDescription: $event })"
           @update:role-level="store.updateJob(activeJob!.id, { roleLevel: $event })"
+          @update:stealth-override="store.updateJob(activeJob!.id, { stealthOverride: $event })"
           @remove="removeJob(activeJob!.id)"
         />
 
