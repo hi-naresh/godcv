@@ -21,12 +21,13 @@ class EducationAgent:
                 "- Do NOT remove any courses — only reorder and optionally rephrase\n"
                 "- Degree names, university names, and dates remain UNCHANGED"
             )
-        prompt = f"""You are a resume education section optimizer. Refine the coursework and emphasis in this education section to better match the job description.
+        prompt = f"""You are a resume education section optimizer. Reorder the coursework in this education section to match the job description.
 
 RULES:
-- Keep ALL degree names, university names, and dates EXACTLY as they are
-- ONLY modify the coursework lists — reorder to put most relevant courses first
-- You may rephrase course names slightly to better align with JD terminology (e.g., "Neural Networks" → "Deep Learning & Neural Networks") but keep them truthful
+- Keep ALL degree names, university names, and dates EXACTLY as they are — character for character
+- ONLY reorder the coursework list — put the most JD-relevant courses first
+- Do NOT rephrase, rename, or reword any course names — copy them exactly
+- Do NOT add, remove, or merge courses
 {coursework_rules}
 - Return the COMPLETE education section content, no section header
 

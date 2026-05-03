@@ -19,24 +19,24 @@ async def isolated_db(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_create_profile_defaults_fabrication_off():
+async def test_create_profile_defaults_stealth_off():
     p = await profile_service.create_profile(name="N", master_resume="m")
-    assert p["fabrication_mode"] == 0
+    assert p["stealth_mode"] == 0
 
 
 @pytest.mark.asyncio
-async def test_create_profile_with_fabrication_on():
-    p = await profile_service.create_profile(name="N", master_resume="m", fabrication_mode=True)
-    assert p["fabrication_mode"] == 1
+async def test_create_profile_with_stealth_on():
+    p = await profile_service.create_profile(name="N", master_resume="m", stealth_mode=True)
+    assert p["stealth_mode"] == 1
 
 
 @pytest.mark.asyncio
-async def test_update_profile_toggles_fabrication():
+async def test_update_profile_toggles_stealth():
     p = await profile_service.create_profile(name="N", master_resume="m")
-    updated = await profile_service.update_profile(p["id"], fabrication_mode=True)
-    assert updated["fabrication_mode"] == 1
-    updated = await profile_service.update_profile(p["id"], fabrication_mode=False)
-    assert updated["fabrication_mode"] == 0
+    updated = await profile_service.update_profile(p["id"], stealth_mode=True)
+    assert updated["stealth_mode"] == 1
+    updated = await profile_service.update_profile(p["id"], stealth_mode=False)
+    assert updated["stealth_mode"] == 0
 
 
 @pytest.mark.asyncio

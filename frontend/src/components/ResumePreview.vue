@@ -44,41 +44,169 @@ const refiningSections = computed(() => {
 // Build a set of normalized text lines from rendered HTML for diffing
 function extractTextLines(html: string): Set<string> {
   const lines = new Set<string>()
-  // Extract text from <li> elements
   const liRegex = /<li>([\s\S]*?)<\/li>/gi
   let m
   while ((m = liRegex.exec(html)) !== null) {
     const text = m[1].replace(/<[^>]+>/g, '').trim()
     if (text) lines.add(text)
   }
-  // Extract text from <p> elements (summary, skills lines)
   const pRegex = /<p>([\s\S]*?)<\/p>/gi
   while ((m = pRegex.exec(html)) !== null) {
     const text = m[1].replace(/<[^>]+>/g, '').trim()
-    if (text.length > 20) lines.add(text) // skip tiny fragments
+    if (text.length > 20) lines.add(text)
   }
   return lines
 }
 
+// Extract a Map<normalizedText, normalizedText> from a tag type for closest-match lookup
+function extractTextMap(html: string, tag: 'li' | 'p'): Map<string, string> {
+  const map = new Map<string, string>()
+  const rx = tag === 'li' ? /<li>([\s\S]*?)<\/li>/gi : /<p>([\s\S]*?)<\/p>/gi
+  let m
+  while ((m = rx.exec(html)) !== null) {
+    const text = m[1].replace(/<[^>]+>/g, '').trim()
+    if (text && (tag === 'li' ? text.length > 0 : text.length > 20)) map.set(text, text)
+  }
+  return map
+}
+
+// Returns 0-indexed positions in newWords that are "added" (not matched by LCS with origWords)
+function getChangedPositions(origWords: string[], newWords: string[]): Set<number> {
+  const m = origWords.length, n = newWords.length
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = origWords[i-1].toLowerCase() === newWords[j-1].toLowerCase()
+        ? dp[i-1][j-1] + 1
+        : Math.max(dp[i-1][j], dp[i][j-1])
+
+  const changed = new Set<number>()
+  let i = m, j = n
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && origWords[i-1].toLowerCase() === newWords[j-1].toLowerCase()) {
+      i--; j--
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+      changed.add(j - 1); j--
+    } else {
+      i--
+    }
+  }
+  return changed
+}
+
+// Build a global set of all words (≥2 chars, lowercased, stripped of punctuation)
+// that appear anywhere in the original HTML. Used to distinguish "moved" words
+// (existed in original but shifted position) from truly new words.
+function buildOriginalWordSet(originalHtml: string): Set<string> {
+  const set = new Set<string>()
+  const text = originalHtml.replace(/<[^>]+>/g, ' ')
+  for (const w of text.split(/\s+/)) {
+    const clean = w.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+    if (clean.length >= 2) set.add(clean)
+  }
+  return set
+}
+
+// Inject <span class="word-changed"> around changed words directly into innerHtml,
+// leaving every HTML tag (bold, italic, etc.) completely untouched.
+// globalOrigWords: set of every word that appeared anywhere in the original document.
+// Words in that set are "moved/reordered" — not highlighted even if LCS marks them added.
+function injectChangedSpans(innerHtml: string, origText: string, globalOrigWords: Set<string>): string {
+  const newText = innerHtml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+  if (!newText) return innerHtml
+
+  const origWords = origText.split(/\s+/).filter(Boolean)
+  const newWords = newText.split(/\s+/).filter(Boolean)
+  const changedPositions = getChangedPositions(origWords, newWords)
+  if (changedPositions.size === 0) return innerHtml
+
+  // Walk the HTML: pass tags through as-is, annotate words only in text nodes
+  let wordIndex = 0
+  let result = ''
+  let pos = 0
+  while (pos < innerHtml.length) {
+    if (innerHtml[pos] === '<') {
+      const tagEnd = innerHtml.indexOf('>', pos)
+      if (tagEnd === -1) { result += innerHtml.slice(pos); break }
+      result += innerHtml.slice(pos, tagEnd + 1)
+      pos = tagEnd + 1
+    } else {
+      const nextTag = innerHtml.indexOf('<', pos)
+      const textEnd = nextTag === -1 ? innerHtml.length : nextTag
+      const textNode = innerHtml.slice(pos, textEnd)
+      result += textNode.replace(/(\S+)/g, (word) => {
+        const idx = wordIndex++
+        if (!changedPositions.has(idx)) return word
+        // Skip words already present anywhere in the original (moved, not new)
+        const clean = word.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+        if (clean.length >= 2 && globalOrigWords.has(clean)) return word
+        return `<span class="word-changed">${word}</span>`
+      })
+      pos = textEnd
+    }
+  }
+  return result
+}
+
+// Jaccard similarity between two texts (word-level)
+function jaccard(a: string, b: string): number {
+  const wa = new Set(a.toLowerCase().split(/\s+/).filter(Boolean))
+  const wb = new Set(b.toLowerCase().split(/\s+/).filter(Boolean))
+  let inter = 0
+  for (const w of wa) if (wb.has(w)) inter++
+  const union = wa.size + wb.size - inter
+  return union > 0 ? inter / union : 0
+}
+
+// Find the closest original text by Jaccard similarity (returns null if below threshold)
+function findClosest(text: string, candidates: Map<string, string>, threshold = 0.25): string | null {
+  let bestKey: string | null = null
+  let bestScore = threshold
+  for (const [key] of candidates) {
+    const score = jaccard(text, key)
+    if (score > bestScore) { bestScore = score; bestKey = key }
+  }
+  return bestKey
+}
+
 function highlightChanges(tailoredHtml: string, originalHtml: string): string {
   const originalLines = extractTextLines(originalHtml)
+  const origLiMap = extractTextMap(originalHtml, 'li')
+  const origPMap = extractTextMap(originalHtml, 'p')
+  // One-time global word set: any word already in the original is "moved", not "new"
+  const globalOrigWords = buildOriginalWordSet(originalHtml)
 
-  // Highlight <li> elements whose text differs from original
+  // Highlight <li> elements with word-level diff
   let html = tailoredHtml.replace(/<li>([\s\S]*?)<\/li>/gi, (match, inner) => {
     const text = inner.replace(/<[^>]+>/g, '').trim()
     if (!text || originalLines.has(text)) return match
-    // Check if it's already a suggestion (don't double-highlight)
     if (match.includes('class="suggestion') || match.includes('class="sug')) return match
+
+    const closest = findClosest(text, origLiMap)
+    if (closest) {
+      return `<li>${injectChangedSpans(inner, closest, globalOrigWords)}</li>`
+    }
     return `<li class="changed-content">${inner}</li>`
   })
 
-  // Highlight <p> elements in summary/skills that changed
+  // Highlight <p> elements with word-level diff.
+  // This regex only matches bare <p> (no class attribute) — role-line, meta,
+  // name, role paragraphs are already skipped because they have class attrs.
   html = html.replace(/<p>([\s\S]*?)<\/p>/gi, (match, inner) => {
     const text = inner.replace(/<[^>]+>/g, '').trim()
     if (!text || text.length <= 20 || originalLines.has(text)) return match
     if (match.includes('class="suggestion') || match.includes('class="sug')) return match
-    // Don't highlight header meta (name, title, links)
     if (match.includes('class="meta"') || match.includes('class="name"') || match.includes('class="role"')) return match
+    // Skip any paragraph that contains <em>: these are structural lines —
+    // education coursework ("*Coursework:* ..."), volunteering dates, etc.
+    // Role-line title+date paragraphs are already class="role-line" so they
+    // never reach here; this guard catches the remaining <em>-bearing lines.
+    if (inner.includes('<em>')) return match
+
+    const closest = findClosest(text, origPMap)
+    if (closest) {
+      return `<p>${injectChangedSpans(inner, closest, globalOrigWords)}</p>`
+    }
     return `<p class="changed-content">${inner}</p>`
   })
 

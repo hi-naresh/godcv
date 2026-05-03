@@ -72,6 +72,28 @@ def _strip_generate_projects_when_strict(tool_calls: list[dict], stealth_mode: b
     return cleaned
 
 
+def _enforce_max_projects(tool_calls: list[dict], max_projects: int) -> list[dict]:
+    """Server-side cap: convert excess project rewrite/include actions to exclude.
+    The orchestrator orders projects by JD relevance, so we keep the first max_projects.
+    This is a hard guardrail — LLMs reliably ignore count instructions in prompts."""
+    result = []
+    kept = 0
+    for call in tool_calls:
+        if call.get("agent") != "projects" or not call.get("entry"):
+            result.append(call)
+            continue
+        action = call.get("action", "")
+        if action in ("rewrite", "include"):
+            if kept < max_projects:
+                kept += 1
+                result.append(call)
+            else:
+                result.append({**call, "action": "exclude"})
+        else:
+            result.append(call)
+    return result
+
+
 @router.post("")
 async def tailor_resume(request: TailorRequest):
     # Resolve API key
@@ -133,6 +155,7 @@ async def tailor_resume(request: TailorRequest):
             )
             tool_calls = plan.get("tool_calls", [])
             tool_calls = _strip_generate_projects_when_strict(tool_calls, stealth_mode)
+            tool_calls = _enforce_max_projects(tool_calls, prefs["max_projects"])
             sections_unchanged = plan.get("sections_unchanged", [])
 
             active = [c for c in tool_calls if c.get("action") != "keep"]
@@ -290,6 +313,7 @@ async def execute_tailoring(request: ExecuteRequest):
             prefs = _resolve_tailoring_prefs(request, profile)
             stealth_mode = prefs["stealth_mode"]
             tool_calls = _strip_generate_projects_when_strict(tool_calls, prefs["stealth_mode"])
+            tool_calls = _enforce_max_projects(tool_calls, prefs["max_projects"])
             role_level = request.role_level
 
             # Phase 1: Parse resume

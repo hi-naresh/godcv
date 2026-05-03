@@ -1,11 +1,13 @@
 import asyncio
 import httpx
 import json
+import random
 import re
 import logging
 from backend.config import (
     GEMINI_BASE_URL,
     GEMINI_DEFAULT_MODEL,
+    GEMINI_MODEL_CHAIN,
     GEMINI_GENERATION_CONFIG,
     GEMINI_SAFETY_SETTINGS,
 )
@@ -35,6 +37,75 @@ RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 MAX_ATTEMPTS = 3
 MAX_SLEEP_PER_ATTEMPT = 60.0
 MAX_TOTAL_WAIT = 90.0
+
+# ── Concurrency limiter ────────────────────────────────────────────────────────
+MAX_CONCURRENT_CALLS = 3
+_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _semaphore
+    if _semaphore is None:
+        _semaphore = asyncio.Semaphore(MAX_CONCURRENT_CALLS)
+    return _semaphore
+
+
+# ── Per-model sliding-window rate limiters ─────────────────────────────────────
+# Each model gets its own semaphore sized to its RPM limit.
+# Tokens auto-release after 60 s → at most rpm_limit calls per 60-second window.
+_model_sems: dict[str, asyncio.Semaphore] = {}
+
+
+def _get_model_sem(model_id: str, rpm_limit: int) -> asyncio.Semaphore:
+    if model_id not in _model_sems:
+        _model_sems[model_id] = asyncio.Semaphore(rpm_limit)
+    return _model_sems[model_id]
+
+
+async def _acquire_model_slot(model_id: str, rpm_limit: int) -> None:
+    sem = _get_model_sem(model_id, rpm_limit)
+    t0 = time.monotonic()
+    await sem.acquire()
+    waited = time.monotonic() - t0
+    if waited > 0.5:
+        logger.info("Rate limiter [%s]: waited %.1fs for slot (RPM %d cap)", model_id, waited, rpm_limit)
+    asyncio.get_running_loop().call_later(60.0, sem.release)
+
+
+# ── Daily-quota exhaustion tracking & model rotation ──────────────────────────
+_exhausted_models: set[str] = set()
+_exhaustion_date: str = ""
+
+
+def _reset_exhaustion_if_new_day() -> None:
+    global _exhausted_models, _exhaustion_date
+    today = time.strftime("%Y-%m-%d")
+    if today != _exhaustion_date:
+        _exhaustion_date = today
+        _exhausted_models = set()
+
+
+def _active_model_config() -> tuple[str, int]:
+    """Return (model_id, rpm_limit) for the first non-exhausted model in the chain."""
+    _reset_exhaustion_if_new_day()
+    for model_id, rpm, _rpd in GEMINI_MODEL_CHAIN:
+        if model_id not in _exhausted_models:
+            return model_id, rpm
+    # All models exhausted today — fall back to primary and let it fail naturally
+    logger.error("All models in GEMINI_MODEL_CHAIN exhausted for today. Quota resets at midnight.")
+    return GEMINI_MODEL_CHAIN[0][0], GEMINI_MODEL_CHAIN[0][1]
+
+
+def _mark_daily_exhausted(model_id: str) -> None:
+    _exhausted_models.add(model_id)
+    remaining = [m for m, _, _ in GEMINI_MODEL_CHAIN if m not in _exhausted_models]
+    next_model = remaining[0] if remaining else "none — all exhausted"
+    logger.warning("Daily quota exhausted for %s → switching to %s", model_id, next_model)
+
+
+def _is_daily_quota_error(retry_delay: float) -> bool:
+    """Retry delays >> 1 minute indicate a daily (not per-minute) quota hit."""
+    return retry_delay > 300
 
 
 def _parse_retry_delay(error_data: dict, message: str) -> float:
@@ -88,11 +159,13 @@ def reset_usage():
 class GeminiClient:
     def __init__(self, api_key: str, model: str | None = None):
         self.api_key = api_key
-        self.model = model or _usage.get("model", GEMINI_DEFAULT_MODEL)
-        self.endpoint = f"{GEMINI_BASE_URL}/models/{self.model}:generateContent"
+        # If caller names an explicit model, pin to it (no rotation).
+        # Otherwise, rotate through GEMINI_MODEL_CHAIN automatically.
+        self._explicit_model = model
+        self.model = model or _active_model_config()[0]  # exposed for logging
 
     async def generate(self, prompt: str, json_mode: bool = False) -> str:
-        """Call Gemini API and return the text response."""
+        """Call Gemini API and return the text response, rotating models on daily quota."""
         gen_config = {**GEMINI_GENERATION_CONFIG}
         if json_mode:
             gen_config["responseMimeType"] = "application/json"
@@ -103,71 +176,114 @@ class GeminiClient:
             "safetySettings": GEMINI_SAFETY_SETTINGS,
         }
 
-        total_waited = 0.0
-        response = None
-        for attempt in range(MAX_ATTEMPTS):
-            try:
-                async with httpx.AsyncClient(timeout=90.0) as client:
-                    response = await client.post(
-                        f"{self.endpoint}?key={self.api_key}",
-                        json=payload,
-                        headers={"Content-Type": "application/json"},
-                    )
-            except httpx.ConnectError:
-                raise RuntimeError("Cannot connect to Gemini API. Check your network connection.")
-            except httpx.TimeoutException:
-                raise RuntimeError("Gemini API request timed out (90s). Try again or use a shorter resume/JD.")
+        tried_models: set[str] = set()
 
-            _usage["total_requests"] += 1
-            _usage["model"] = self.model
-
-            # Track rate limits from response headers
-            headers = response.headers
-            for h in ["x-ratelimit-limit-requests", "x-ratelimit-remaining-requests",
-                       "x-ratelimit-limit-tokens", "x-ratelimit-remaining-tokens",
-                       "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"]:
-                if h in headers:
-                    _rate_limits[h.replace("x-ratelimit-", "")] = headers[h]
-
-            if response.status_code == 200:
-                break  # success — fall through to parsing logic
-
-            if response.status_code not in RETRYABLE_STATUSES or attempt == MAX_ATTEMPTS - 1:
-                break  # non-retryable or last attempt — let error handling below raise
-
-            # Compute delay for this retry
-            try:
-                error_data = response.json()
-                msg = error_data.get("error", {}).get("message", "")
-            except Exception:
-                error_data, msg = {}, ""
-
-            if response.status_code == 429:
-                delay = min(_parse_retry_delay(error_data, msg), MAX_SLEEP_PER_ATTEMPT)
-                reason = "rate-limited (429)"
+        # Outer loop: advance to next model when daily quota is exhausted.
+        while True:
+            if self._explicit_model:
+                model_id = self._explicit_model
+                # Derive rpm_limit from chain if it's listed there, else use a safe default
+                rpm_limit = next(
+                    (rpm for m, rpm, _ in GEMINI_MODEL_CHAIN if m == model_id), 4
+                )
             else:
-                delay = min(2.0 * (2 ** attempt), MAX_SLEEP_PER_ATTEMPT)  # 2, 4, 8
-                reason = f"server error ({response.status_code})"
+                model_id, rpm_limit = _active_model_config()
 
-            if total_waited + delay > MAX_TOTAL_WAIT:
-                break  # would exceed total wait cap — give up
+            if model_id in tried_models:
+                raise RuntimeError(
+                    "All Gemini models have exhausted their daily quota. Quota resets at midnight."
+                )
+            tried_models.add(model_id)
+            self.model = model_id  # keep exposed attr current
 
-            logger.info("Gemini %s — retrying in %.1fs (attempt %d/%d)", reason, delay, attempt + 1, MAX_ATTEMPTS)
-            await asyncio.sleep(delay)
-            total_waited += delay
+            endpoint = f"{GEMINI_BASE_URL}/models/{model_id}:generateContent"
 
-        if response.status_code != 200:
-            _usage["errors"] += 1
-            try:
-                error_data = response.json()
-                msg = error_data.get("error", {}).get("message", "")
-            except Exception:
-                msg = ""
-            if not msg:
-                msg = f"HTTP {response.status_code}"
-            if response.status_code == 400 and "API key" in msg:
-                raise RuntimeError(f"Invalid Gemini API key: {msg}")
-            raise RuntimeError(f"Gemini API error: {msg}")
+            # Reserve one sliding-window slot before firing.
+            await _acquire_model_slot(model_id, rpm_limit)
+
+            total_waited = 0.0
+            response = None
+            rotate_to_next = False
+
+            for attempt in range(MAX_ATTEMPTS):
+                async with _get_semaphore():
+                    try:
+                        async with httpx.AsyncClient(timeout=90.0) as client:
+                            response = await client.post(
+                                f"{endpoint}?key={self.api_key}",
+                                json=payload,
+                                headers={"Content-Type": "application/json"},
+                            )
+                    except httpx.ConnectError:
+                        raise RuntimeError("Cannot connect to Gemini API. Check your network connection.")
+                    except httpx.TimeoutException:
+                        raise RuntimeError("Gemini API request timed out (90s). Try again or use a shorter resume/JD.")
+
+                    _usage["total_requests"] += 1
+                    _usage["model"] = model_id
+
+                    headers = response.headers
+                    for h in ["x-ratelimit-limit-requests", "x-ratelimit-remaining-requests",
+                               "x-ratelimit-limit-tokens", "x-ratelimit-remaining-tokens",
+                               "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"]:
+                        if h in headers:
+                            _rate_limits[h.replace("x-ratelimit-", "")] = headers[h]
+
+                    remaining = _rate_limits.get("remaining-requests", "")
+                    if remaining and remaining.isdigit() and int(remaining) < 3:
+                        logger.warning("Gemini quota low [%s]: only %s requests remaining in window", model_id, remaining)
+
+                if response.status_code == 200:
+                    break
+
+                if response.status_code not in RETRYABLE_STATUSES or attempt == MAX_ATTEMPTS - 1:
+                    break
+
+                try:
+                    error_data = response.json()
+                    msg = error_data.get("error", {}).get("message", "")
+                except Exception:
+                    error_data, msg = {}, ""
+
+                if response.status_code == 429:
+                    retry_delay = _parse_retry_delay(error_data, msg)
+                    # Daily quota exhausted (delay >> 1 min): rotate to next model immediately.
+                    if _is_daily_quota_error(retry_delay) and not self._explicit_model:
+                        _mark_daily_exhausted(model_id)
+                        rotate_to_next = True
+                        break
+                    base_delay = min(retry_delay, MAX_SLEEP_PER_ATTEMPT)
+                    reason = "rate-limited (429)"
+                else:
+                    base_delay = min(2.0 * (2 ** attempt), MAX_SLEEP_PER_ATTEMPT)
+                    reason = f"server error ({response.status_code})"
+
+                delay = base_delay * (0.75 + random.random() * 0.5)
+                if total_waited + delay > MAX_TOTAL_WAIT:
+                    break
+
+                logger.info("Gemini %s [%s] — retrying in %.1fs (attempt %d/%d)",
+                            reason, model_id, delay, attempt + 1, MAX_ATTEMPTS)
+                await asyncio.sleep(delay)
+                total_waited += delay
+
+            if rotate_to_next:
+                continue  # pick next model from chain
+
+            if response.status_code != 200:
+                _usage["errors"] += 1
+                try:
+                    error_data = response.json()
+                    msg = error_data.get("error", {}).get("message", "")
+                except Exception:
+                    msg = ""
+                if not msg:
+                    msg = f"HTTP {response.status_code}"
+                if response.status_code == 400 and "API key" in msg:
+                    raise RuntimeError(f"Invalid Gemini API key: {msg}")
+                raise RuntimeError(f"Gemini API error: {msg}")
+
+            break  # success — exit model rotation loop
 
         try:
             data = response.json()

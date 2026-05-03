@@ -124,6 +124,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   border-left: 2px solid #28a745;
   padding-left: 4px;
 }
+/* Inline word-level changed words */
+.sheet-content .word-changed {
+  background: #c8f5c8;
+  border-radius: 2px;
+  padding: 0 2px;
+}
 
 /* Justified mode: justify long text for even alignment */
 .justified .sheet-content p,
@@ -151,6 +157,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   background: none !important;
   border-left: none !important;
   padding-left: 0 !important;
+}
+.export-mode .word-changed {
+  background: none !important;
+  padding: 0 !important;
 }
 .export-mode .refining-badge {
   display: none !important;
@@ -196,6 +206,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   .changed-content {
     background: none !important;
     border-left: none !important;
+    padding: 0 !important;
+  }
+  .word-changed {
+    background: none !important;
     padding: 0 !important;
   }
 

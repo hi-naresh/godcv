@@ -65,7 +65,8 @@ class ExperienceAgent:
                 "WHAT YOU CANNOT DO (in addition):\n"
                 "- Change the job title, company name, or dates (first bold line stays UNCHANGED)\n"
                 "- Add technologies to Stack Used that weren't part of this specific role\n"
-                "- Remove quantified achievements (numbers, percentages) — they are real"
+                "- Remove quantified achievements (numbers, percentages) — they are real\n"
+                "- Change any existing number, percentage, or metric — if the original says 60%, keep 60%"
             )
 
         prompt = f"""You are a resume experience bullet point writer. Rewrite this single job entry to be more compelling for the target role.

@@ -10,8 +10,10 @@ import argparse
 import logging
 import os
 import signal
+import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)-25s %(message)s"
@@ -45,6 +47,94 @@ def cmd_build(args):
     logger.info("Frontend built successfully at %s/dist", FRONTEND_DIR)
 
 
+def _is_port_in_use(port: int) -> bool:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", port))
+        return False
+    except OSError:
+        return True
+    finally:
+        s.close()
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def _port_listeners(port: int) -> list[tuple[int, str]]:
+    """Return [(pid, command_line)] for processes listening on the TCP port."""
+    try:
+        lsof = subprocess.run(
+            ["lsof", "-t", f"-iTCP:{port}", "-sTCP:LISTEN"],
+            capture_output=True, text=True, check=False,
+        )
+    except FileNotFoundError:
+        return []
+    pids = [int(p) for p in lsof.stdout.split() if p.strip().isdigit()]
+    out = []
+    for pid in pids:
+        try:
+            ps = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "command="],
+                capture_output=True, text=True, check=False,
+            )
+            out.append((pid, ps.stdout.strip()))
+        except FileNotFoundError:
+            out.append((pid, ""))
+    return out
+
+
+def _looks_like_godcv(cmd: str) -> bool:
+    """Heuristic: is this a uvicorn/godcv process we're safe to auto-kill?"""
+    cmd_l = cmd.lower()
+    return ("uvicorn" in cmd_l and "backend.main:app" in cmd_l) or "godcv" in cmd_l
+
+
+def _ensure_port_free(port: int, label: str, logger: logging.Logger) -> bool:
+    """Free the port if a stale godcv owns it. Return True if free (or freed).
+
+    If a non-godcv process owns the port, log who and return False — the caller
+    should exit and let the user resolve the conflict.
+    """
+    listeners = _port_listeners(port)
+    if not listeners:
+        return not _is_port_in_use(port)  # may still be bound by something lsof missed
+
+    godcv_pids = [pid for pid, cmd in listeners if _looks_like_godcv(cmd)]
+    foreign = [(pid, cmd) for pid, cmd in listeners if not _looks_like_godcv(cmd)]
+
+    if foreign:
+        logger.error("Port %d (%s) is held by another application:", port, label)
+        for pid, cmd in foreign:
+            logger.error("  PID %d  %s", pid, cmd)
+        logger.error("Stop that process or rerun with a different port "
+                     "(e.g. `godcv dev --port 9002 --frontend-port 3002`).")
+        return False
+
+    if godcv_pids:
+        logger.warning("Port %d held by stale godcv PID(s) %s — terminating", port, godcv_pids)
+        for pid in godcv_pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except (OSError, ProcessLookupError):
+                pass
+        deadline = time.monotonic() + 1.5
+        while time.monotonic() < deadline and any(_pid_alive(pid) for pid in godcv_pids):
+            time.sleep(0.1)
+        for pid in godcv_pids:
+            if _pid_alive(pid):
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except (OSError, ProcessLookupError):
+                    pass
+    return not _is_port_in_use(port)
+
+
 def cmd_dev(args):
     """Start both backend (uvicorn --reload) and frontend (vite dev) in one command."""
     setup_logging(args.verbose)
@@ -56,6 +146,14 @@ def cmd_dev(args):
 
     backend_port = args.port
     frontend_port = args.frontend_port
+
+    # Pre-flight: clear any stale godcv process holding our ports from a previous run.
+    # If a *different* application owns the port, bail out with a clear message
+    # rather than blindly killing it.
+    for port, label in ((backend_port, "backend"), (frontend_port, "frontend")):
+        if _is_port_in_use(port) and not _ensure_port_free(port, label, logger):
+            sys.exit(1)
+
     logger.info("Starting GodCV dev mode")
     logger.info("  Backend:  http://localhost:%d (auto-reload)", backend_port)
     logger.info("  Frontend: http://localhost:%d (hot-reload, proxies /api -> :%d)", frontend_port, backend_port)
@@ -67,53 +165,94 @@ def cmd_dev(args):
         "GODCV_BACKEND_PORT": str(backend_port),
         "GODCV_FRONTEND_PORT": str(frontend_port),
     }
+    # WeasyPrint needs libgobject/libpango on macOS via Homebrew. Inject the
+    # Homebrew lib path so PDF export works without the user having to set
+    # DYLD_FALLBACK_LIBRARY_PATH in their shell profile.
+    if sys.platform == "darwin" and "DYLD_FALLBACK_LIBRARY_PATH" not in dev_env:
+        for brew_lib in ("/opt/homebrew/lib", "/usr/local/lib"):
+            if os.path.isdir(brew_lib):
+                dev_env["DYLD_FALLBACK_LIBRARY_PATH"] = brew_lib
+                break
 
     procs = []
+    shutting_down = {"v": False}
+
+    def _signal_group(p: subprocess.Popen, sig: int) -> None:
+        try:
+            os.killpg(os.getpgid(p.pid), sig)
+        except (OSError, ProcessLookupError):
+            pass
+
+    def _wait_all(timeout: float) -> None:
+        deadline = time.monotonic() + timeout
+        for p in procs:
+            remaining = max(0.0, deadline - time.monotonic())
+            try:
+                p.wait(timeout=remaining)
+            except subprocess.TimeoutExpired:
+                pass
 
     def _kill_all():
-        """Kill all child process trees via process group."""
+        if shutting_down["v"]:
+            return
+        shutting_down["v"] = True
+
+        # Phase 1 — graceful: SIGINT mirrors a Ctrl+C on each subtree.
+        # uvicorn's reload supervisor handles SIGINT by tearing down its worker.
         for p in procs:
-            try:
-                # Kill the entire process group (parent + all children)
-                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-            except (OSError, ProcessLookupError):
-                pass
+            if p.poll() is None:
+                _signal_group(p, signal.SIGINT)
+        _wait_all(timeout=3.0)
+
+        # Phase 2 — escalate to SIGTERM for anything still alive.
         for p in procs:
-            try:
-                p.wait(timeout=5)
-            except subprocess.TimeoutExpired:
+            if p.poll() is None:
+                _signal_group(p, signal.SIGTERM)
+        _wait_all(timeout=2.0)
+
+        # Phase 3 — SIGKILL holdouts (covers stuck node/vite, orphaned workers).
+        for p in procs:
+            if p.poll() is None:
+                _signal_group(p, signal.SIGKILL)
                 try:
-                    os.killpg(os.getpgid(p.pid), signal.SIGKILL)
-                except (OSError, ProcessLookupError):
-                    p.kill()
+                    p.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    pass
+
+        # Phase 4 — belt-and-suspenders: if anything still owns the ports
+        # (e.g. an orphaned uvicorn worker that escaped its process group),
+        # free them before we exit so the next `godcv dev` starts clean.
+        for port, label in ((backend_port, "backend"), (frontend_port, "frontend")):
+            if _is_port_in_use(port):
+                _ensure_port_free(port, label, logger)
+
+    # Translate SIGTERM (e.g. `kill <pid>`) into the same shutdown path as Ctrl+C.
+    # Python already converts SIGINT to KeyboardInterrupt by default.
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
 
     try:
-        # Start backend in its own process group so we can kill the whole tree
         backend_proc = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "backend.main:app",
              "--host", "0.0.0.0", "--port", str(backend_port), "--reload"],
             env=dev_env,
-            preexec_fn=os.setsid,
+            start_new_session=True,
         )
         procs.append(backend_proc)
 
-        # Start frontend in its own process group
         frontend_proc = subprocess.Popen(
             ["npm", "run", "dev"],
             cwd=str(FRONTEND_DIR),
             env=dev_env,
-            preexec_fn=os.setsid,
+            start_new_session=True,
         )
         procs.append(frontend_proc)
 
-        # Wait for either to exit
         while True:
             for p in procs:
                 ret = p.poll()
                 if ret is not None:
                     logger.info("Process exited with code %d, stopping all...", ret)
                     raise KeyboardInterrupt
-            import time
             time.sleep(0.5)
 
     except KeyboardInterrupt:
@@ -126,6 +265,12 @@ def cmd_run(args):
     import uvicorn
     setup_logging(args.verbose)
     logger = logging.getLogger("godcv")
+
+    if sys.platform == "darwin" and "DYLD_FALLBACK_LIBRARY_PATH" not in os.environ:
+        for brew_lib in ("/opt/homebrew/lib", "/usr/local/lib"):
+            if os.path.isdir(brew_lib):
+                os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = brew_lib
+                break
 
     logger.info("Starting GodCV on http://localhost:%d", args.port)
 

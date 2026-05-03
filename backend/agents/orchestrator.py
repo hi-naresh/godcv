@@ -49,10 +49,10 @@ class OrchestratorAgent:
         stealth_notice = STEALTH_ALLOWED_BLOCK if stealth_mode else STRICT_BLOCK
 
         projects_count_rule = (
-            f"PROJECTS COUNT: Always select up to {max_projects} projects total — rank by JD relevance, "
-            f"\"exclude\" the rest. Aim for {max_projects} unless fewer projects strongly demonstrate fit. "
-            f"If generate_projects is set on a tool_call, those generated entries count toward this {max_projects} total "
-            f"(so existing projects must be reduced accordingly)."
+            f"PROJECTS COUNT: You MUST output EXACTLY {max_projects} projects with action 'rewrite' or 'include' — "
+            f"all others MUST be 'exclude'. Rank by JD relevance and keep the top {max_projects}. "
+            f"This is a hard limit — do not include more than {max_projects} projects regardless of how many are in the resume. "
+            f"If generate_projects is set, generated entries count toward this {max_projects} total."
         )
 
         if stealth_mode:
@@ -98,11 +98,12 @@ AVAILABLE AGENTS AND ACTIONS:
   - "exclude": drop only if completely irrelevant AND space is needed
   - INSTRUCTIONS must say WHICH JD requirements this entry should emphasize
 - agent: "projects", entry: "<ProjectKey>", action: "rewrite"|"include"|"exclude"
-  - "rewrite": INSTRUCTIONS must be SPECIFIC about this project's relevance:
-    - Is this project DIRECTLY relevant? → "EXPAND: this demonstrates [JD skill X, Y]. Highlight [specific aspect]."
-    - Is it tangentially relevant? → "CONDENSE to 1-2 bullets. Only highlight [transferable skill]."
-    - Is it irrelevant? → use "exclude" instead
-  - Do NOT tell the agent to force JD buzzwords into irrelevant projects — that's dishonest
+  - "rewrite": INSTRUCTIONS MUST start with one of these relevance signals, then be specific:
+    - DIRECTLY relevant → start with "EXPAND: this demonstrates [exact JD skill]. Highlight [specific aspect of the project that maps to JD]."
+    - Tangentially relevant → start with "CONDENSE: 1 bullet only. Highlight transferable skill: [specific skill]."
+    - Irrelevant → use "exclude" — do NOT rewrite irrelevant projects, do NOT force JD terms into them
+  - The instructions are read by the project agent to decide how many bullets to write — be precise
+  - Do NOT instruct the agent to "align with JD" or "use JD keywords" without specifying HOW this project actually demonstrates the JD requirement
   - You may set "generate_projects": true on ONE projects tool_call (without entry) to generate
 {generate_projects_rule}
 - agent: "education", action: "rewrite" — reorder coursework to lead with JD-relevant topics
