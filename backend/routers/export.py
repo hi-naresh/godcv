@@ -19,7 +19,12 @@ from functools import lru_cache
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from PIL import ImageFont
+try:
+    from PIL import ImageFont as _ImageFont
+    _PIL_AVAILABLE = True
+except ImportError:
+    _ImageFont = None  # type: ignore[assignment]
+    _PIL_AVAILABLE = False
 
 from backend.db.models import ExportRequest
 
@@ -85,12 +90,14 @@ def _font_path(kind: str) -> str | None:
 
 
 @lru_cache(maxsize=64)
-def _font_at(kind: str, size_pt_x100: int) -> ImageFont.FreeTypeFont | None:
-    """Cache one ImageFont per (kind, size). size is x100 to make int-keyed."""
+def _font_at(kind: str, size_pt_x100: int):
+    """Cache one ImageFont per (kind, size). Returns None if Pillow is unavailable."""
+    if not _PIL_AVAILABLE:
+        return None
     path = _font_path(kind)
     if path is None:
         return None
-    return ImageFont.truetype(path, size=size_pt_x100 / 100.0)
+    return _ImageFont.truetype(path, size=size_pt_x100 / 100.0)
 
 
 def _measure_pt(text: str, kind: str, size_pt: float, letter_spacing_pt: float = 0.0) -> float:
