@@ -189,3 +189,57 @@ Server-side PDF export (requires WeasyPrint).
 **Response:** PDF file (`application/pdf`)
 
 Falls back to error if WeasyPrint is not installed. The frontend uses client-side PDF export (jsPDF + html2canvas) as the primary method.
+
+## Job Framework (Idempotent Queue)
+
+Base path: `/job-framework`
+
+### `POST /job-framework/retry-budgets`
+
+Upserts per-job-class retry budgeting used for exponential backoff.
+
+**Body:**
+```json
+{
+  "job_class": "TailorResumeJob",
+  "max_retries": 5,
+  "base_delay_seconds": 30,
+  "max_delay_seconds": 1800,
+  "backoff_multiplier": 2.0
+}
+```
+
+### `POST /job-framework/jobs`
+
+Enqueues a job with an idempotency key. Repeated requests with the same key return the existing job.
+
+**Body:**
+```json
+{
+  "job_class": "TailorResumeJob",
+  "idempotency_key": "profile-1-jd-hash",
+  "payload": { "profile_id": 1 }
+}
+```
+
+### `POST /job-framework/jobs/claim`
+
+Claims the next due queued job and marks it `running`.
+
+### `POST /job-framework/jobs/{job_id}/success`
+
+Marks a running job as `succeeded`.
+
+### `POST /job-framework/jobs/{job_id}/failure`
+
+Records a failure attempt. The framework either:
+- schedules retry with exponential backoff, or
+- quarantines the job when retry budget is exhausted.
+
+### `GET /job-framework/quarantine`
+
+Returns quarantined poison-pill jobs for dead-letter visibility.
+
+### `GET /job-framework/jobs/{job_id}/failures`
+
+Returns per-attempt failure history for operational debugging.

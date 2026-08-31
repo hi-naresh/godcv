@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 
 
@@ -118,3 +118,25 @@ class ExportRequest(BaseModel):
     filename: str = "resume.pdf"
     document_title: str | None = None
     document_lang: str = "en"
+
+
+class RetryBudgetUpdateRequest(BaseModel):
+    job_class: str
+    max_retries: int = 5
+    base_delay_seconds: int = 30
+    max_delay_seconds: int = 1800
+    backoff_multiplier: float = 2.0
+
+
+class EnqueueJobRequest(BaseModel):
+    job_class: str
+    idempotency_key: str
+    payload: dict = Field(default_factory=dict)
+
+
+class JobSuccessRequest(BaseModel):
+    result: dict | None = None
+
+
+class JobFailureRequest(BaseModel):
+    error_message: str

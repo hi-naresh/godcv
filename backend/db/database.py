@@ -77,6 +77,44 @@ async def _init_tables(db: aiosqlite.Connection):
             sections_modified TEXT DEFAULT '[]',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS job_retry_budgets (
+            job_class TEXT PRIMARY KEY,
+            max_retries INTEGER NOT NULL DEFAULT 5,
+            base_delay_seconds INTEGER NOT NULL DEFAULT 30,
+            max_delay_seconds INTEGER NOT NULL DEFAULT 1800,
+            backoff_multiplier REAL NOT NULL DEFAULT 2.0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS job_queue (
+            id INTEGER PRIMARY KEY,
+            job_class TEXT NOT NULL,
+            payload TEXT NOT NULL DEFAULT '{}',
+            idempotency_key TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL DEFAULT 'queued',
+            attempt_count INTEGER NOT NULL DEFAULT 0,
+            run_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            result TEXT,
+            last_error TEXT,
+            quarantine_reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            started_at TIMESTAMP,
+            finished_at TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_job_queue_status_run_at ON job_queue(status, run_at);
+        CREATE INDEX IF NOT EXISTS idx_job_queue_class_status ON job_queue(job_class, status);
+
+        CREATE TABLE IF NOT EXISTS job_failure_events (
+            id INTEGER PRIMARY KEY,
+            job_id INTEGER NOT NULL REFERENCES job_queue(id) ON DELETE CASCADE,
+            attempt_number INTEGER NOT NULL,
+            error_message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_job_failure_events_job_id ON job_failure_events(job_id);
     """)
     await db.commit()
 
@@ -102,4 +140,10 @@ async def _init_tables(db: aiosqlite.Connection):
         await db.commit()
     if "require_quantified_bullets" not in columns:
         await db.execute("ALTER TABLE profiles ADD COLUMN require_quantified_bullets INTEGER DEFAULT 1")
+        await db.commit()
+
+    cursor = await db.execute("PRAGMA table_info(job_queue)")
+    job_queue_columns = [row[1] for row in await cursor.fetchall()]
+    if job_queue_columns and "result" not in job_queue_columns:
+        await db.execute("ALTER TABLE job_queue ADD COLUMN result TEXT")
         await db.commit()

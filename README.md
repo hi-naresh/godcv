@@ -19,6 +19,7 @@ AI-powered resume tailoring system that analyzes job descriptions and rewrites y
 - **Structured editor** -- edit experience entries, skills, projects as structured data (not raw markdown)
 - **Multi-job support** -- tailor for multiple positions simultaneously, compare results
 - **Role learning** -- remembers your strongest points and skill preferences per role type
+- **Idempotent job framework** -- enqueue with idempotency keys, per-class retry budgets, exponential backoff, and quarantine visibility
 
 ## Screenshots
 
